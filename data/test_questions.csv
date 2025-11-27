@@ -1,0 +1,11 @@
+id,question,expected_intent
+1,Triệu chứng của bệnh sốt xuất huyết là gì?,tim_kiem_thong_tin_y_te
+2,Làm sao để phòng ngừa bệnh cúm mùa?,tim_kiem_thong_tin_y_te
+3,Bị đau đầu chóng mặt buồn nôn là bệnh gì?,tim_kiem_thong_tin_y_te
+4,Thuốc Paracetamol dùng như thế nào?,tim_kiem_thong_tin_y_te
+5,Trẻ em bị sốt cao co giật phải làm sao?,tim_kiem_thong_tin_y_te
+6,Bệnh tiểu đường nên ăn gì?,tim_kiem_thong_tin_y_te
+7,Dấu hiệu nhận biết viêm phổi ở người già?,tim_kiem_thong_tin_y_te
+8,Đau dạ dày có nên uống nước cam không?,tim_kiem_thong_tin_y_te
+9,Cách sơ cứu khi bị bỏng nước sôi?,tim_kiem_thong_tin_y_te
+10,Xin chào bác sĩ,tim_kiem_thong_tin_y_te

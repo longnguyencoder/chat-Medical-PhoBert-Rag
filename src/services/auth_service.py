@@ -18,7 +18,7 @@ def register_user(email, password, full_name, language_preference='en'):
     
     # Generate OTP
     otp_code = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(seconds=60)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
     
     # Save OTP
     otp = OTP(
@@ -159,7 +159,7 @@ def resend_register_otp(email):
     OTP.query.filter_by(email=email, purpose='register', is_used=False).delete()
     db.session.commit()
     otp_code = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(seconds=60)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
     otp = OTP(
         email=email,
         otp_code=otp_code,
@@ -181,7 +181,7 @@ def resend_forgot_password_otp(email):
     db.session.commit()
     
     otp_code = generate_otp()
-    expires_at = datetime.utcnow() + timedelta(seconds=60)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
     
     otp = OTP(
         email=email,
