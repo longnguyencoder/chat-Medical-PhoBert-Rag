@@ -1,0 +1,177 @@
+[
+  {
+    "id": "q1",
+    "question": "Triệu chứng của cảm cúm là gì?",
+    "expected_disease": "Cảm cúm",
+    "category": "symptoms",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q2",
+    "question": "Làm thế nào để điều trị sốt xuất huyết?",
+    "expected_disease": "Sốt xuất huyết",
+    "category": "treatment",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q3",
+    "question": "Cách phòng ngừa viêm dạ dày như thế nào?",
+    "expected_disease": "Viêm dạ dày",
+    "category": "prevention",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q4",
+    "question": "Tôi bị đau đầu dữ dội một bên, sợ ánh sáng và buồn nôn. Đây là bệnh gì?",
+    "expected_disease": "Đau nửa đầu (Migraine)",
+    "category": "diagnosis",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q5",
+    "question": "Tăng huyết áp có triệu chứng gì không?",
+    "expected_disease": "Tăng huyết áp",
+    "category": "symptoms",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q6",
+    "question": "Người bị tiểu đường type 2 nên ăn uống như thế nào?",
+    "expected_disease": "Tiểu đường (Đái tháo đường) type 2",
+    "category": "prevention",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q7",
+    "question": "Tôi bị sốt cao đột ngột, đau đầu, đau phía sau mắt và có phát ban. Có phải sốt xuất huyết không?",
+    "expected_disease": "Sốt xuất huyết",
+    "category": "diagnosis",
+    "difficulty": "hard"
+  },
+  {
+    "id": "q8",
+    "question": "Viêm họng nên uống thuốc gì?",
+    "expected_disease": "Viêm họng",
+    "category": "treatment",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q9",
+    "question": "Làm sao để tránh bị dị ứng thời tiết?",
+    "expected_disease": "Dị ứng thời tiết",
+    "category": "prevention",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q10",
+    "question": "Rối loạn tiêu hóa có triệu chứng như thế nào?",
+    "expected_disease": "Rối loạn tiêu hóa",
+    "category": "symptoms",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q11",
+    "question": "Tôi hay khát nước, đi tiểu nhiều và mệt mỏi. Có phải tiểu đường không?",
+    "expected_disease": "Tiểu đường (Đái tháo đường) type 2",
+    "category": "diagnosis",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q12",
+    "question": "Đau vùng thượng vị, buồn nôn và ợ hơi là bệnh gì?",
+    "expected_disease": "Viêm dạ dày",
+    "category": "diagnosis",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q13",
+    "question": "Cảm cúm có cần dùng kháng sinh không?",
+    "expected_disease": "Cảm cúm",
+    "category": "treatment",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q14",
+    "question": "Làm thế nào để phòng ngừa tăng huyết áp?",
+    "expected_disease": "Tăng huyết áp",
+    "category": "prevention",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q15",
+    "question": "Đau nửa đầu migraine nên làm gì để giảm đau?",
+    "expected_disease": "Đau nửa đầu (Migraine)",
+    "category": "treatment",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q16",
+    "question": "Tôi bị sốt, ho, đau họng và chảy nước mũi. Đây có phải cảm cúm?",
+    "expected_disease": "Cảm cúm",
+    "category": "diagnosis",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q17",
+    "question": "Sốt xuất huyết có thể tự khỏi không hay phải nhập viện?",
+    "expected_disease": "Sốt xuất huyết",
+    "category": "treatment",
+    "difficulty": "hard"
+  },
+  {
+    "id": "q18",
+    "question": "Người viêm dạ dày nên tránh ăn gì?",
+    "expected_disease": "Viêm dạ dày",
+    "category": "prevention",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q19",
+    "question": "Hắt hơi, sổ mũi, ngứa mắt khi trời lạnh là bệnh gì?",
+    "expected_disease": "Dị ứng thời tiết",
+    "category": "diagnosis",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q20",
+    "question": "Rối loạn tiêu hóa có nguy hiểm không?",
+    "expected_disease": "Rối loạn tiêu hóa",
+    "category": "general",
+    "difficulty": "easy"
+  },
+  {
+    "id": "q21",
+    "question": "Triệu chứng nào cho thấy tôi có thể bị tăng huyết áp?",
+    "expected_disease": "Tăng huyết áp",
+    "category": "symptoms",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q22",
+    "question": "Viêm họng do virus hay vi khuẩn? Có khác gì không?",
+    "expected_disease": "Viêm họng",
+    "category": "general",
+    "difficulty": "hard"
+  },
+  {
+    "id": "q23",
+    "question": "Tôi bị đau bụng, đầy hơi và tiêu chảy. Nên làm gì?",
+    "expected_disease": "Rối loạn tiêu hóa",
+    "category": "treatment",
+    "difficulty": "medium"
+  },
+  {
+    "id": "q24",
+    "question": "Làm sao biết mình bị sốt xuất huyết hay chỉ là sốt thông thường?",
+    "expected_disease": "Sốt xuất huyết",
+    "category": "diagnosis",
+    "difficulty": "hard"
+  },
+  {
+    "id": "q25",
+    "question": "Tiêm vắc-xin cúm có hiệu quả không?",
+    "expected_disease": "Cảm cúm",
+    "category": "prevention",
+    "difficulty": "medium"
+  }
+]

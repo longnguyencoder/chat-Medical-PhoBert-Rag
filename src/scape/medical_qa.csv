@@ -1,0 +1,51 @@
+id,question,answer,disease_name,category
+1,"Con tôi sốt 38 độ và ho, có phải cảm cúm không?","Có thể là cảm cúm. Cho trẻ nghỉ ngơi, uống nhiều nước, dùng Paracetamol hạ sốt. Nếu sốt trên 39 độ hoặc kéo dài quá 3 ngày, cần đến bác sĩ.",Cảm cúm,Trẻ em
+2,"Tôi bị đau bụng và tiêu chảy 3 ngày, phải làm sao?","Uống nhiều nước hoặc Oresol bù nước, ăn cháo nhạt, tránh đồ cay. Nếu tiêu chảy kèm sốt cao, phân có máu hoặc quá 3 ngày, cần khám bác sĩ.",Rối loạn tiêu hóa,Tiêu hóa
+3,"Bị đau dạ dày có nên uống thuốc gì?","Có thể dùng thuốc kháng axit hoặc thuốc ức chế bơm proton. Tránh đồ cay, chua, rượu bia. Nếu đau nhiều hoặc kéo dài, cần nội soi dạ dày.",Viêm dạ dày,Tiêu hóa
+4,"Huyết áp 150/95 có cao không? Cần làm gì?","Huyết áp này cao hơn bình thường (120/80). Cần ăn nhạt, tập thể dục, giảm cân. Nếu cao liên tục, cần gặp bác sĩ để được kê thuốc.",Tăng huyết áp,Tim mạch
+5,"Đường huyết đói 130 mg/dL có phải tiểu đường không?","Đường huyết đói bình thường <100 mg/dL. 130 mg/dL có thể là tiền tiểu đường hoặc tiểu đường. Cần xét nghiệm HbA1c và gặp bác sĩ.",Tiểu đường type 2,Nội tiết
+6,"Bị sốt xuất huyết có nên uống Aspirin không?","KHÔNG được uống Aspirin hoặc Ibuprofen vì có thể gây chảy máu. Chỉ dùng Paracetamol hạ sốt, uống nhiều nước, theo dõi tiểu cầu.",Sốt xuất huyết,Truyền nhiễm
+7,"Ho ra máu có nguy hiểm không?","Rất nguy hiểm, có thể do lao phổi, ung thư phổi hoặc viêm phổi nặng. Cần đến bệnh viện ngay để chụp X-quang và xét nghiệm.",Lao phổi,Hô hấp
+8,"Bị trĩ chảy máu khi đi cầu, có cần phẫu thuật không?","Chưa nhất thiết phẫu thuật. Thử điều trị nội khoa trước: ăn nhiều rau xanh, uống đủ nước, thuốc bôi. Nếu nặng hoặc sa búi trĩ mới cần phẫu thuật.",Trĩ,Tiêu hóa
+9,"Đau khớp gối khi lên xuống cầu thang, bị gì?","Có thể thoái hóa khớp gối. Nên giảm cân, tập thể dục nhẹ, bổ sung glucosamine. Nếu đau nhiều, cần chụp X-quang khớp gối.",Thoái hóa khớp,Xương khớp
+10,"Bị mất ngủ kéo dài 2 tuần, có nên uống thuốc ngủ?","Thử vệ sinh giấc ngủ trước: ngủ đúng giờ, tắt điện thoại, phòng tối. Nếu không khỏi, gặp bác sĩ để được kê thuốc an toàn, tránh tự ý mua thuốc.",Mất ngủ,Thần kinh
+11,"Đau đầu một bên kèm buồn nôn, có phải đau nửa đầu không?","Rất có thể là đau nửa đầu (migraine). Nghỉ ngơi trong phòng tối, yên tĩnh. Dùng thuốc giảm đau sớm. Tránh stress, thiếu ngủ.",Đau nửa đầu,Thần kinh
+12,"Bị vàng da, vàng mắt là dấu hiệu gì?","Có thể viêm gan (A, B, C), sỏi mật hoặc xơ gan. Cần xét nghiệm máu, siêu âm gan mật ngay. Tránh rượu bia hoàn toàn.",Viêm gan B,Gan mật
+13,"Mụn trứng cá nhiều, có nên dùng Isotretinoin?","Isotretinoin rất hiệu quả nhưng có tác dụng phụ. Chỉ dùng khi mụn nặng và theo chỉ định bác sĩ da liễu. Phụ nữ cần tránh thai khi dùng.",Mụn trứng cá,Da liễu
+14,"Bị nấm da ở bẹn, bôi thuốc gì?","Bôi thuốc chống nấm (Clotrimazole, Miconazole) 2 lần/ngày. Giữ vùng da khô ráo, mặc quần lót cotton. Nếu không khỏi sau 2 tuần, cần uống thuốc.",Nấm da,Da liễu
+15,"Trẻ bị thủy đậu, có cần cách ly không?","Cần cách ly ít nhất 7 ngày từ khi nổi mụn. Cắt móng tay tránh gãi, tắm nước ấm, bôi thuốc giảm ngứa. Không cho đi học.",Thủy đậu,Trẻ em
+16,"Bị viêm họng, có nên uống kháng sinh?","Nếu do virus thì không cần kháng sinh. Súc miệng nước muối, uống nước ấm. Nếu do vi khuẩn (amidan có mủ, sốt cao) mới cần kháng sinh.",Viêm họng,Tai mũi họng
+17,"Bị viêm xoang mãn tính, có cần phẫu thuật?","Thử điều trị nội khoa trước: rửa mũi nước muối, kháng sinh, thuốc thông mũi. Nếu tái phát nhiều hoặc polyp mũi mới cần phẫu thuật nội soi.",Viêm xoang,Tai mũi họng
+18,"Đau lưng lan xuống chân, có phải thoát vị đĩa đệm?","Rất có thể. Cần chụp MRI cột sống thắt lưng để chẩn đoán. Điều trị: nghỉ ngơi, vật lý trị liệu, thuốc giảm đau. Nặng mới phẫu thuật.",Thoát vị đĩa đệm,Xương khớp
+19,"Bị gút, có nên ăn hải sản không?","KHÔNG nên ăn hải sản, nội tạng, uống bia rượu vì giàu purin làm tăng acid uric. Ăn nhiều rau xanh, uống đủ nước, dùng thuốc hạ acid uric.",Gout,Xương khớp
+20,"Phụ nữ mang thai bị cảm cúm, uống thuốc gì an toàn?","Chỉ dùng Paracetamol hạ sốt. KHÔNG dùng Ibuprofen, Aspirin. Nghỉ ngơi, uống nhiều nước. Nếu sốt cao hoặc khó thở, cần đến bệnh viện ngay.",Cảm cúm,Sản phụ khoa
+21,"Kinh nguyệt không đều, có phải PCOS?","Có thể PCOS nhưng cần siêu âm buồng trứng và xét nghiệm hormone để chẩn đoán. Triệu chứng khác: lông mọc nhiều, mụn, khó thụ thai.",PCOS,Sản phụ khoa
+22,"Bị loét dạ dày có nên uống sữa?","Sữa chỉ giảm đau tạm thời. Cần uống thuốc ức chế bơm proton (PPI), xét nghiệm HP và diệt khuẩn nếu dương tính. Tránh cay, chua, rượu bia.",Viêm dạ dày,Tiêu hóa
+23,"Bị táo bón kéo dài, có nguy hiểm không?","Táo bón lâu có thể gây trĩ, nứt kẽ hậu môn. Ăn nhiều rau xanh, uống đủ nước, tập thể dục. Nếu kèm đau bụng, phân có máu, cần nội soi đại tràng.",Rối loạn tiêu hóa,Tiêu hóa
+24,"Gan nhiễm mỡ có nguy hiểm không?","Nếu không điều trị có thể tiến triển thành viêm gan, xơ gan. Cần giảm cân, tập thể dục, hạn chế đường và tinh bột, không uống rượu.",Viêm gan do mỡ,Gan mật
+25,"Bị sỏi thận, có nên uống bia để đẩy sỏi?","KHÔNG nên uống bia. Uống nhiều NƯỚC LỌC (2-3 lít/ngày) mới đúng. Sỏi nhỏ (<5mm) có thể tự đẩy, sỏi lớn cần phá sỏi hoặc phẫu thuật.",Sỏi thận,Thận tiết niệu
+26,"Tiểu ra máu, có phải ung thư bàng quang?","Có thể sỏi thận, nhiễm trùng tiết niệu hoặc ung thư. Cần siêu âm, xét nghiệm nước tiểu, nội soi bàng quang để chẩn đoán chính xác.",Sỏi thận,Thận tiết niệu
+27,"Bị hen phế quản, có cần dùng thuốc hít suốt đời?","Tùy mức độ. Hen nhẹ có thể chỉ dùng khi cần. Hen trung bình-nặng cần dùng thuốc dự phòng hàng ngày. Tránh dị nguyên, không hút thuốc.",Hen phế quản,Hô hấp
+28,"Bị COPD, có cần thở oxy tại nhà?","Nếu SpO2 <88% hoặc khó thở nhiều mới cần oxy tại nhà. Quan trọng nhất là NGỪNG HÚT THUỐC, dùng thuốc giãn phế quản đều đặn.",COPD,Hô hấp
+29,"Mắt đỏ, ngứa, chảy ghèn, bị gì?","Có thể viêm kết mạc do vi khuẩn hoặc dị ứng. Nhỏ mắt kháng sinh (nếu có ghèn vàng) hoặc kháng histamin (nếu ngứa nhiều). Không dụi mắt.",Viêm kết mạc,Mắt
+30,"Người già 70 tuổi nhìn mờ, có phải đục thủy tinh thể?","Rất có thể. Cần khám mắt để chẩn đoán. Nếu đục nhiều ảnh hưởng sinh hoạt, cần phẫu thuật thay thủy tinh thể nhân tạo.",Đục thủy tinh thể,Mắt
+31,"Bị ù tai sau khi nghe nhạc to, có khỏi không?","Có thể khỏi nếu tránh tiếng ồn. Nghỉ ngơi tai, không nghe nhạc to. Nếu ù tai kéo dài >2 tuần, cần khám tai mũi họng.",Ù tai,Tai mũi họng
+32,"Trẻ bị viêm tai giữa, có cần đặt ống thông khí?","Chỉ cần nếu viêm tai tái phát nhiều (>3 lần/năm) hoặc tích dịch kéo dài. Thường điều trị kháng sinh trước.",Viêm tai giữa,Trẻ em
+33,"Bị sâu răng nhưng không đau, có cần trám không?","CẦN trám ngay vì sâu răng sẽ lan sâu hơn. Khi đau thì đã sâu đến tủy, phải lấy tủy tốn kém hơn.",Sâu răng,Răng hàm mặt
+34,"Lợi chảy máu khi đánh răng, bị gì?","Có thể viêm lợi hoặc viêm quanh răng. Cần cạo vôi răng, đánh răng đúng cách 2 lần/ngày, dùng chỉ nha khoa.",Viêm lợi,Răng hàm mặt
+35,"Bị zona, có lây cho người khác không?","Có thể lây virus thủy đậu cho người chưa từng mắc. Cần che vết thương, tránh tiếp xúc trẻ em và phụ nữ mang thai.",Zona,Da liễu
+36,"Bị vảy nến, có chữa khỏi được không?","Vảy nến là bệnh mãn tính chưa chữa khỏi hoàn toàn nhưng kiểm soát được. Dùng thuốc bôi, thuốc uống, quang trị liệu. Tránh stress.",Vảy nến,Da liễu
+37,"Bị viêm da cơ địa, có nên tắm nhiều không?","Nên tắm nhưng dùng nước ấm, xà phòng nhẹ, tắm nhanh. Sau tắm bôi kem dưỡng ẩm ngay. Tránh tắm nước nóng làm khô da.",Viêm da cơ địa,Da liễu
+38,"Bị tay chân miệng, trẻ có nên đi học?","KHÔNG nên đi học ít nhất 7-10 ngày. Bệnh lây lan nhanh qua tiếp xúc. Cho trẻ nghỉ nhà, ăn mềm, uống nhiều nước.",Tay chân miệng,Trẻ em
+39,"Tiêm vắc-xin COVID-19 có tác dụng phụ gì?","Thường nhẹ: đau tại chỗ tiêm, mệt, sốt nhẹ 1-2 ngày. Uống Paracetamol nếu cần. Tác dụng phụ nặng rất hiếm.",Cảm cúm,Phòng bệnh
+40,"Bị COVID-19 nhẹ, có cần uống thuốc gì?","Nghỉ ngơi, uống nhiều nước, Paracetamol hạ sốt. Theo dõi SpO2, nếu <94% hoặc khó thở cần đến bệnh viện ngay.",Cảm cúm,Truyền nhiễm
+41,"Xét nghiệm phát hiện HP dương tính, có nguy hiểm?","HP gây loét dạ dày, tá tràng và tăng nguy cơ ung thư dạ dày. Cần diệt khuẩn bằng 3 loại thuốc (kháng sinh + PPI) trong 10-14 ngày.",Viêm dạ dày,Tiêu hóa
+42,"Bị tiểu đường có ăn trái cây được không?","Được nhưng hạn chế trái cây ngọt (xoài, nhãn, vải). Ưu tiên trái cây ít đường (ổi, táo, bưởi). Ăn vừa phải, đo đường huyết sau ăn.",Tiểu đường type 2,Nội tiết
+43,"Bị suy giáp, có cần uống thuốc suốt đời?","Đúng, cần uống Levothyroxine suốt đời. Uống đúng giờ, đói bụng, cách bữa ăn 30-60 phút. Xét nghiệm TSH định kỳ 6 tháng/lần.",Suy giáp,Nội tiết
+44,"Bị cường giáp, mắt có bị lồi không?","Không phải ai cũng lồi mắt. Bệnh Basedow mới hay lồi mắt. Cần điều trị cường giáp bằng thuốc, iod phóng xạ hoặc phẫu thuật.",Cường giáp,Nội tiết
+45,"Phụ nữ mãn kinh có nên uống hormone thay thế?","Tùy triệu chứng. Nếu bốc hỏa, khô âm đạo nhiều có thể dùng ngắn hạn. Nhưng tăng nguy cơ ung thư vú, huyết khối. Cần bác sĩ tư vấn.",PCOS,Sản phụ khoa
+46,"Bị loãng xương, có nên uống canxi?","Cần bổ sung canxi (1000-1200mg/ngày) + vitamin D. Tập thể dục chịu lực (đi bộ, chạy). Dùng thuốc chống loãng xương nếu nặng.",Loãng xương,Xương khớp
+47,"Bị viêm khớp dạng thấp, có chữa khỏi không?","Chưa chữa khỏi hoàn toàn nhưng kiểm soát được. Dùng thuốc sớm để tránh biến dạng khớp. Vật lý trị liệu, tập thể dục nhẹ.",Viêm khớp dạng thấp,Xương khớp
+48,"Bị đột quỵ, thời gian vàng để cấp cứu là bao lâu?","4.5 giờ đầu để tiêm thuốc tiêu sợi huyết. Càng sớm càng tốt. Dấu hiệu: liệt nửa người, méo miệng, nói khó. Gọi 115 ngay.",Đột quỵ,Cấp cứu
+49,"Bị nhồi máu cơ tim, có sống được không?","Nếu cấp cứu kịp thời (<6 giờ) tỷ lệ sống cao. Triệu chứng: đau ngực dữ dội, tức ngực, đau lan ra tay trái. Gọi 115 ngay.",Nhồi máu cơ tim,Cấp cứu
+50,"Bị ung thư giai đoạn đầu, có chữa khỏi không?","Ung thư giai đoạn sớm (I-II) tỷ lệ chữa khỏi cao (>80-90%). Quan trọng là phát hiện sớm qua tầm soát định kỳ.",Ung thư phổi,Ung thư
