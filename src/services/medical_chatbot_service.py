@@ -147,6 +147,75 @@ def rerank_results(question: str, results: List[Dict]) -> List[Dict]:
         logger.error(f"Reranking failed: {e}. Using original order.")
         return results
 
+# ═══════════════════════════════════════════════════════════════
+# CONVERSATION SUMMARY
+# ═══════════════════════════════════════════════════════════════
+
+def generate_conversation_summary(conversation_id: int) -> Optional[str]:
+    """
+    Generate a concise summary of the conversation using GPT.
+    
+    Args:
+        conversation_id: ID of the conversation to summarize
+        
+    Returns:
+        Concise summary string or None if failed
+    """
+    try:
+        from src.models.message import Message
+        
+        # Get all messages in conversation
+        messages = Message.query.filter_by(
+            conversation_id=conversation_id
+        ).order_by(Message.sent_at).all()
+        
+        if not messages or len(messages) < 3:
+            return None  # Too few messages to summarize
+        
+        # Format conversation history
+        conversation_text = []
+        for msg in messages:
+            sender = "Người dùng" if msg.sender == 'user' else "Bác sĩ AI"
+            conversation_text.append(f"{sender}: {msg.message_text}")
+        
+        full_conversation = "\n".join(conversation_text)
+        
+        # Generate summary with GPT
+        prompt = f"""Bạn là trợ lý y tế. Hãy tóm tắt cuộc hội thoại sau thành 3-5 dòng NGẮN GỌN.
+
+Cuộc hội thoại:
+{full_conversation}
+
+YÊU CẦU TÓM TẮT:
+- Chỉ ghi các thông tin Y TẾ quan trọng
+- Format: Bullet points (•)
+- Bao gồm: Triệu chứng, thuốc đã dùng, tình trạng hiện tại
+- KHÔNG giải thích, CHỈ liệt kê thông tin
+
+VÍ DỤ TÓM TẮT TỐT:
+• Triệu chứng: Sốt 38°C, đau đầu, ho khan
+• Đã dùng: Paracetamol 3 ngày
+• Tình trạng: Chưa đỡ
+• Khuyến cáo: Cần đi khám nếu không cải thiện
+
+Hãy tóm tắt:"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,  # Low temperature for consistent summaries
+            max_tokens=200
+        )
+        
+        summary = response.choices[0].message.content.strip()
+        logger.info(f"✓ Generated summary for conversation {conversation_id}")
+        return summary
+        
+    except Exception as e:
+        logger.error(f"Failed to generate summary: {e}")
+        return None
+
+
 def get_or_create_collection():
     """Get existing collection or create new one if not exists"""
     try:
@@ -377,11 +446,49 @@ def combined_search_with_filters(
 def generate_natural_response(
     question: str,
     search_results: List[Dict],
-    extracted_features: Dict[str, Any]
+    extracted_features: Dict[str, Any],
+    conversation_id: Optional[int] = None
 ) -> Dict[str, Any]:
-    """Generate natural language response using enhanced prompts"""
+    """
+    Generate natural language response using enhanced prompts.
+    
+    NEW: Includes conversation context from recent messages for better understanding.
+    """
     try:
         logger.info("Generating response with GPT")
+        
+        # === CONVERSATION CONTEXT ===
+        conversation_context = ""
+        conversation_summary = ""
+        
+        if conversation_id:
+            try:
+                from src.models.message import Message
+                from src.models.conversation import Conversation
+                
+                # Get conversation summary (if exists)
+                conversation = Conversation.query.get(conversation_id)
+                if conversation and conversation.summary:
+                    conversation_summary = conversation.summary
+                    logger.info("✓ Loaded conversation summary")
+                
+                # Get last 5 messages (excluding current question)
+                recent_messages = Message.query.filter_by(
+                    conversation_id=conversation_id
+                ).order_by(Message.sent_at.desc()).limit(5).all()
+                
+                if recent_messages:
+                    # Reverse to chronological order
+                    recent_messages.reverse()
+                    context_parts = []
+                    for msg in recent_messages:
+                        sender_label = "Người dùng" if msg.sender == 'user' else "Bác sĩ AI"
+                        context_parts.append(f"{sender_label}: {msg.message_text}")
+                    
+                    conversation_context = "\n".join(context_parts)
+                    logger.info(f"✓ Loaded {len(recent_messages)} recent messages for context")
+            except Exception as e:
+                logger.warning(f"Could not load conversation context: {e}")
         if not search_results:
             return {
                 "answer": """Xin lỗi, tôi không tìm thấy thông tin phù hợp trong cơ sở dữ liệu y tế để trả lời câu hỏi của bạn.
@@ -433,16 +540,35 @@ VÍ DỤ TRẢ LỜI TỐT:
 Bạn nên nghỉ ngơi đầy đủ, uống nhiều nước. Nếu sốt cao hoặc kéo dài quá 3 ngày, hãy đến gặp bác sĩ nhé."
 """
         
-        user_prompt = f"""
-Câu hỏi: {question}
+        
+        # Build user prompt with conversation context
+        user_prompt_parts = [f"Câu hỏi hiện tại: {question}"]
+        
+        # Add conversation summary if available
+        if conversation_summary:
+            user_prompt_parts.append(f"""
+【Tóm tắt cuộc trò chuyện trước đó】
+{conversation_summary}""")
 
-Thông tin y tế:
+        # Add conversation history if available
+        if conversation_context:
+            user_prompt_parts.append(f"""
+【Lịch sử hội thoại gần đây】
+{conversation_context}
+
+⚠️ LƯU Ý: Hãy tham khảo lịch sử để hiểu ngữ cảnh. 
+Ví dụ: Nếu user hỏi "còn cách nào khác?" thì "cách" đó đã được đề cập trước đó.""")
+        
+        user_prompt_parts.append(f"""
+【Thông tin y tế từ cơ sở dữ liệu】
 {context}
 
-Thông tin trích xuất: {json.dumps(extracted_features, ensure_ascii=False)}
+【Thông tin trích xuất】
+{json.dumps(extracted_features, ensure_ascii=False)}
 
-Hãy trả lời theo đúng quy tắc.
-"""
+Hãy trả lời theo đúng quy tắc.""")
+        
+        user_prompt = "\n\n".join(user_prompt_parts)
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",

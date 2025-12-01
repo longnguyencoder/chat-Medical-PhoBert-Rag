@@ -112,8 +112,13 @@ class MedicalChat(Resource):
             search_result = combined_search_with_filters(question, extracted_features)
             search_results = search_result.get('results', [])
             
-            # 3. Generate response
-            response = generate_natural_response(question, search_results, extracted_features)
+            # 3. Generate response with conversation context
+            response = generate_natural_response(
+                question, 
+                search_results, 
+                extracted_features,
+                conversation_id=conversation.conversation_id if conversation else None
+            )
             answer = response.get('answer')
             
             # Save Bot Response
@@ -127,6 +132,20 @@ class MedicalChat(Resource):
                 )
                 db.session.add(bot_msg)
                 db.session.commit()
+                
+                # Auto-generate summary every 5 messages
+                message_count = Message.query.filter_by(
+                    conversation_id=conversation.conversation_id
+                ).count()
+                
+                if message_count >= 5 and message_count % 5 == 0:
+                    from src.services.medical_chatbot_service import generate_conversation_summary
+                    summary = generate_conversation_summary(conversation.conversation_id)
+                    if summary:
+                        conversation.summary = summary
+                        db.session.commit()
+                        logger.info(f"✓ Updated conversation summary (total messages: {message_count})")
+            
             
             # Build response
             result = {
