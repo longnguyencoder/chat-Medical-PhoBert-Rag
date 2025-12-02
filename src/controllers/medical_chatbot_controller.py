@@ -112,12 +112,20 @@ class MedicalChat(Resource):
             search_result = combined_search_with_filters(question, extracted_features)
             search_results = search_result.get('results', [])
             
+            # Get user name if available
+            user_name = None
+            if user_id:
+                user = User.query.get(user_id)
+                if user and user.full_name:
+                    user_name = user.full_name
+
             # 3. Generate response with conversation context
             response = generate_natural_response(
                 question, 
                 search_results, 
                 extracted_features,
-                conversation_id=conversation.conversation_id if conversation else None
+                conversation_id=conversation.conversation_id if conversation else None,
+                user_name=user_name
             )
             answer = response.get('answer')
             

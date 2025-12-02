@@ -451,15 +451,16 @@ def generate_natural_response(
     question: str,
     search_results: List[Dict],
     extracted_features: Dict[str, Any],
-    conversation_id: Optional[int] = None
+    conversation_id: Optional[int] = None,
+    user_name: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Generate natural language response using enhanced prompts.
     
-    NEW: Includes conversation context from recent messages for better understanding.
+    NEW: Includes conversation context and user personalization.
     """
     try:
-        logger.info("Generating response with GPT")
+        logger.info(f"Generating response with GPT (User: {user_name})")
         
         # === CONVERSATION CONTEXT ===
         conversation_context = ""
@@ -515,8 +516,13 @@ def generate_natural_response(
 """)
         context = "\n".join(context_parts)
         
+        # Personalize greeting
+        greeting_instruction = '- Bắt đầu bằng "Chào bạn,"'
+        if user_name:
+            greeting_instruction = f'- Bắt đầu bằng "Chào bạn {user_name},"'
+        
         # Enhanced system prompt
-        system_prompt = """
+        system_prompt = f"""
 Bạn là Bác sĩ AI với 10 năm kinh nghiệm lâm sàng, chuyên tư vấn sức khỏe cho người Việt Nam.
 
 QUY TẮC BẮT BUỘC:
@@ -529,13 +535,13 @@ QUY TẮC BẮT BUỘC:
    • Có dấu hiệu nguy hiểm: khó thở, đau ngực, co giật
 
 PHONG CÁCH:
-- Bắt đầu bằng "Chào bạn,"
+{greeting_instruction}
 - Chia thành 2-3 đoạn ngắn
 - Dùng bullet points (•) khi liệt kê
 - Giọng điệu thân thiện, không gây hoảng loạn
 
 VÍ DỤ TRẢ LỜI TỐT:
-"Chào bạn, cảm cúm thường có các triệu chứng sau:
+"Chào bạn {user_name if user_name else ''}, cảm cúm thường có các triệu chứng sau:
 
 • Sốt nhẹ (37.5-38.5°C)
 • Chảy nước mũi, nghẹt mũi
