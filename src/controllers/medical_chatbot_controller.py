@@ -256,3 +256,392 @@ class HealthCheck(Resource):
                 'error': str(e)
             }, 500
 
+
+# Models for Conversation Management
+conversation_model = medical_chatbot_ns.model('Conversation', {
+    'conversation_id': fields.Integer(description='Conversation ID'),
+    'title': fields.String(description='Conversation Title'),
+    'started_at': fields.String(description='Start time'),
+    'summary': fields.String(description='Conversation Summary')
+})
+
+conversation_list_response = medical_chatbot_ns.model('ConversationListResponse', {
+    'conversations': fields.List(fields.Nested(conversation_model))
+})
+
+create_conversation_request = medical_chatbot_ns.model('CreateConversationRequest', {
+    'user_id': fields.Integer(required=True, description='User ID'),
+    'title': fields.String(description='Optional initial title')
+})
+
+@medical_chatbot_ns.route('/conversations')
+class ConversationList(Resource):
+    @medical_chatbot_ns.expect(create_conversation_request)
+    @medical_chatbot_ns.response(201, 'Created', conversation_model)
+    @medical_chatbot_ns.doc('create_conversation')
+    def post(self):
+        """Create a new conversation"""
+        try:
+            data = request.json
+            user_id = data.get('user_id')
+            title = data.get('title', 'New Conversation')
+            
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+                
+            conversation = Conversation(
+                user_id=user_id,
+                started_at=datetime.utcnow(),
+                source_language='vi',
+                title=title
+            )
+            db.session.add(conversation)
+            db.session.commit()
+            
+            return {
+                'conversation_id': conversation.conversation_id,
+                'title': conversation.title,
+                'started_at': conversation.started_at.isoformat(),
+                'summary': conversation.summary
+            }, 201
+            
+        except Exception as e:
+            logger.error(f"Error creating conversation: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+
+    @medical_chatbot_ns.doc('list_conversations', params={'user_id': 'User ID'})
+    @medical_chatbot_ns.response(200, 'Success', conversation_list_response)
+    def get(self):
+        """Get list of conversations for a user"""
+        try:
+            user_id = request.args.get('user_id', type=int)
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+                
+            conversations = Conversation.query.filter_by(user_id=user_id)\
+                .order_by(Conversation.started_at.desc()).all()
+                
+            return {
+                'conversations': [
+                    {
+                        'conversation_id': c.conversation_id,
+                        'title': c.title,
+                        'started_at': c.started_at.isoformat() if c.started_at else None,
+                        'summary': c.summary
+                    }
+                    for c in conversations
+                ]
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error listing conversations: {str(e)}")
+            return {'message': 'Internal server error'}, 500
+
+# Update conversation title request model
+update_conversation_request = medical_chatbot_ns.model('UpdateConversationRequest', {
+    'user_id': fields.Integer(required=True, description='User ID'),
+    'title': fields.String(required=True, description='New title')
+})
+
+@medical_chatbot_ns.route('/conversations/<int:conversation_id>')
+class ConversationDetail(Resource):
+    @medical_chatbot_ns.expect(update_conversation_request)
+    @medical_chatbot_ns.response(200, 'Success', conversation_model)
+    @medical_chatbot_ns.doc('update_conversation')
+    def put(self, conversation_id):
+        """Update conversation title"""
+        try:
+            data = request.json
+            user_id = data.get('user_id')
+            new_title = data.get('title')
+            
+            if not user_id or not new_title:
+                return {'message': 'user_id and title are required'}, 400
+            
+            conversation = Conversation.query.get(conversation_id)
+            if not conversation:
+                return {'message': 'Conversation not found'}, 404
+            
+            if conversation.user_id != user_id:
+                return {'message': 'Unauthorized'}, 403
+            
+            conversation.title = new_title
+            db.session.commit()
+            
+            return {
+                'conversation_id': conversation.conversation_id,
+                'title': conversation.title,
+                'started_at': conversation.started_at.isoformat(),
+                'summary': conversation.summary
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error updating conversation: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+    
+    @medical_chatbot_ns.doc('delete_conversation', params={'user_id': 'User ID'})
+    @medical_chatbot_ns.response(200, 'Deleted')
+    def delete(self, conversation_id):
+        """Delete conversation and all its messages"""
+        try:
+            user_id = request.args.get('user_id', type=int)
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+            
+            conversation = Conversation.query.get(conversation_id)
+            if not conversation:
+                return {'message': 'Conversation not found'}, 404
+            
+            if conversation.user_id != user_id:
+                return {'message': 'Unauthorized'}, 403
+            
+            # Delete all messages first
+            Message.query.filter_by(conversation_id=conversation_id).delete()
+            
+            # Delete conversation
+            db.session.delete(conversation)
+            db.session.commit()
+            
+            return {'message': 'Conversation deleted successfully'}, 200
+            
+        except Exception as e:
+            logger.error(f"Error deleting conversation: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+
+@medical_chatbot_ns.route('/conversations/search')
+class ConversationSearch(Resource):
+    @medical_chatbot_ns.doc('search_conversations', params={
+        'user_id': 'User ID',
+        'keyword': 'Search keyword'
+    })
+    @medical_chatbot_ns.response(200, 'Success', conversation_list_response)
+    def get(self):
+        """Search conversations by keyword in title or messages"""
+        try:
+            user_id = request.args.get('user_id', type=int)
+            keyword = request.args.get('keyword', '').strip()
+            
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+            
+            if not keyword:
+                return {'message': 'keyword is required'}, 400
+            
+            # Search in conversation titles
+            conversations = Conversation.query.filter(
+                Conversation.user_id == user_id,
+                Conversation.title.ilike(f'%{keyword}%')
+            ).order_by(Conversation.started_at.desc()).all()
+            
+            # Also search in message content
+            message_convs = db.session.query(Conversation).join(Message).filter(
+                Conversation.user_id == user_id,
+                Message.message_text.ilike(f'%{keyword}%')
+            ).distinct().order_by(Conversation.started_at.desc()).all()
+            
+            # Combine and deduplicate
+            all_convs = {c.conversation_id: c for c in conversations + message_convs}
+            
+            return {
+                'conversations': [
+                    {
+                        'conversation_id': c.conversation_id,
+                        'title': c.title,
+                        'started_at': c.started_at.isoformat() if c.started_at else None,
+                        'summary': c.summary
+                    }
+                    for c in all_convs.values()
+                ]
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error searching conversations: {str(e)}")
+            return {'message': 'Internal server error'}, 500
+
+# Regenerate request model
+regenerate_request = medical_chatbot_ns.model('RegenerateRequest', {
+    'user_id': fields.Integer(required=True, description='User ID'),
+    'conversation_id': fields.Integer(required=True, description='Conversation ID'),
+    'message_id': fields.Integer(required=True, description='Bot message ID to regenerate')
+})
+
+@medical_chatbot_ns.route('/chat/regenerate')
+class RegenerateResponse(Resource):
+    @medical_chatbot_ns.expect(regenerate_request)
+    @medical_chatbot_ns.response(200, 'Success', chat_response)
+    @medical_chatbot_ns.doc('regenerate_response')
+    def post(self):
+        """Regenerate bot response for a message"""
+        try:
+            data = request.json
+            user_id = data.get('user_id')
+            conversation_id = data.get('conversation_id')
+            message_id = data.get('message_id')
+            
+            if not all([user_id, conversation_id, message_id]):
+                return {'message': 'user_id, conversation_id, and message_id are required'}, 400
+            
+            # Verify conversation ownership
+            conversation = Conversation.query.get(conversation_id)
+            if not conversation or conversation.user_id != user_id:
+                return {'message': 'Conversation not found or unauthorized'}, 403
+            
+            # Get the bot message to regenerate
+            bot_message = Message.query.get(message_id)
+            if not bot_message or bot_message.sender != 'bot':
+                return {'message': 'Bot message not found'}, 404
+            
+            # Find the user question before this bot response
+            user_message = Message.query.filter(
+                Message.conversation_id == conversation_id,
+                Message.sender == 'user',
+                Message.sent_at < bot_message.sent_at
+            ).order_by(Message.sent_at.desc()).first()
+            
+            if not user_message:
+                return {'message': 'Original question not found'}, 404
+            
+            question = user_message.message_text
+            
+            # Extract intent and search
+            extraction_result = extract_user_intent_and_features(question)
+            extracted_features = extraction_result.get('extracted_features', {})
+            
+            search_result = combined_search_with_filters(question, extracted_features)
+            search_results = search_result.get('results', [])
+            
+            # Generate new response
+            response = generate_natural_response(
+                question,
+                search_results,
+                extracted_features,
+                conversation_id=conversation_id
+            )
+            new_answer = response.get('answer')
+            
+            # Delete old bot message
+            db.session.delete(bot_message)
+            
+            # Save new bot message
+            new_bot_msg = Message(
+                conversation_id=conversation_id,
+                sender='bot',
+                message_text=new_answer,
+                message_type='text',
+                sent_at=datetime.utcnow()
+            )
+            db.session.add(new_bot_msg)
+            db.session.commit()
+            
+            return {
+                'question': question,
+                'answer': new_answer,
+                'confidence': response.get('confidence', 'unknown'),
+                'conversation_id': conversation_id,
+                'message_id': new_bot_msg.message_id,
+                'sources': [
+                    {
+                        'disease_name': src['metadata'].get('disease_name'),
+                        'relevance_score': src.get('relevance_score')
+                    }
+                    for src in response.get('sources', [])
+                ]
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error regenerating response: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+
+@medical_chatbot_ns.route('/conversations/<int:conversation_id>/archive')
+class ArchiveConversation(Resource):
+    @medical_chatbot_ns.doc('archive_conversation', params={'user_id': 'User ID'})
+    @medical_chatbot_ns.response(200, 'Success')
+    def post(self, conversation_id):
+        """Archive or unarchive a conversation"""
+        try:
+            user_id = request.args.get('user_id', type=int)
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+            
+            conversation = Conversation.query.get(conversation_id)
+            if not conversation:
+                return {'message': 'Conversation not found'}, 404
+            
+            if conversation.user_id != user_id:
+                return {'message': 'Unauthorized'}, 403
+            
+            # Toggle archive status
+            conversation.is_archived = not conversation.is_archived
+            db.session.commit()
+            
+            status = "archived" if conversation.is_archived else "unarchived"
+            return {'message': f'Conversation {status} successfully', 'is_archived': conversation.is_archived}, 200
+            
+        except Exception as e:
+            logger.error(f"Error archiving conversation: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+
+@medical_chatbot_ns.route('/conversations/<int:conversation_id>/pin')
+class PinConversation(Resource):
+    @medical_chatbot_ns.doc('pin_conversation', params={'user_id': 'User ID'})
+    @medical_chatbot_ns.response(200, 'Success')
+    def post(self, conversation_id):
+        """Pin or unpin a conversation"""
+        try:
+            user_id = request.args.get('user_id', type=int)
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+            
+            conversation = Conversation.query.get(conversation_id)
+            if not conversation:
+                return {'message': 'Conversation not found'}, 404
+            
+            if conversation.user_id != user_id:
+                return {'message': 'Unauthorized'}, 403
+            
+            # Toggle pin status
+            conversation.is_pinned = not conversation.is_pinned
+            db.session.commit()
+            
+            status = "pinned" if conversation.is_pinned else "unpinned"
+            return {'message': f'Conversation {status} successfully', 'is_pinned': conversation.is_pinned}, 200
+            
+        except Exception as e:
+            logger.error(f"Error pinning conversation: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+
+@medical_chatbot_ns.route('/messages/<int:message_id>')
+class MessageDetail(Resource):
+    @medical_chatbot_ns.doc('delete_message', params={'user_id': 'User ID'})
+    @medical_chatbot_ns.response(200, 'Deleted')
+    def delete(self, message_id):
+        """Delete a specific message"""
+        try:
+            user_id = request.args.get('user_id', type=int)
+            if not user_id:
+                return {'message': 'user_id is required'}, 400
+            
+            message = Message.query.get(message_id)
+            if not message:
+                return {'message': 'Message not found'}, 404
+            
+            # Check ownership via conversation
+            conversation = Conversation.query.get(message.conversation_id)
+            if not conversation or conversation.user_id != user_id:
+                return {'message': 'Unauthorized'}, 403
+            
+            db.session.delete(message)
+            db.session.commit()
+            
+            return {'message': 'Message deleted successfully'}, 200
+            
+        except Exception as e:
+            logger.error(f"Error deleting message: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500

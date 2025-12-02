@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, inspect
 # Add src to path
 sys.path.append(os.getcwd())
 
-from src.config import Config
+from src.config.config import Config
 
 def check_column():
     print(f"Checking database...")

@@ -1,5 +1,9 @@
 import os
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 from openai import OpenAI
 from typing import Dict, List, Optional, Any, Tuple
 import chromadb

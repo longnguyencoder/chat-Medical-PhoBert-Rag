@@ -1,22 +1,21 @@
 
 import sys
 import os
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 
 # Add src to path
 sys.path.append(os.getcwd())
 
-from src.config import Config
+from src.config.config import Config
 
 def fix_db():
-    print(f"Connecting to {Config.SQLALCHEMY_DATABASE_URI}...")
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    
     try:
+        engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+        inspector = inspect(engine)
+        
         with engine.connect() as conn:
             print("Checking columns...")
-            result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name = 'Conversations';"))
-            columns = [row[0] for row in result]
+            columns = [col['name'] for col in inspector.get_columns('Conversations')]
             print(f"Current columns: {columns}")
             
             if 'summary' not in columns:
