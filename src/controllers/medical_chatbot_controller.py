@@ -12,6 +12,7 @@ from src.models.base import db
 from src.models.message import Message
 from src.models.conversation import Conversation
 from src.models.user import User
+from src.utils.auth_middleware import token_required  # Import decorator JWT
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -190,6 +191,101 @@ class MedicalChat(Resource):
                 'error': str(e)
             }, 500
 
+# ============================================================================
+# API MỚI: CHAT VỚI JWT AUTHENTICATION
+# ============================================================================
+@medical_chatbot_ns.route('/chat-secure')
+class SecureMedicalChat(Resource):
+    @medical_chatbot_ns.expect(medical_chatbot_ns.model('SecureChatRequest', {
+        'question': fields.String(required=True, description='Câu hỏi y tế'),
+        'conversation_id': fields.Integer(description='ID cuộc trò chuyện (tùy chọn)')
+    }))
+    @medical_chatbot_ns.response(200, 'Success')
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @token_required  # ← Kiểm tra JWT token
+    def post(self, current_user):
+        """
+        Chat BẢO MẬT với JWT - Không cần truyền user_id.
+        
+        Header: Authorization: Bearer <token>
+        Body: {"question": "..."}
+        """
+        try:
+            data = request.json
+            question = data.get('question', '').strip()
+            conversation_id = data.get('conversation_id')
+            
+            if not question:
+                return {'message': 'Question is required'}, 400
+            
+            # Lấy user_id từ token (an toàn)
+            user_id = current_user['user_id']
+            user_name = current_user.get('full_name')
+            
+            # Xử lý conversation
+            conversation = None
+            if conversation_id:
+                conversation = Conversation.query.filter_by(
+                    conversation_id=conversation_id, user_id=user_id
+                ).first()
+            
+            if not conversation:
+                conversation = Conversation(
+                    user_id=user_id,
+                    started_at=datetime.utcnow(),
+                    source_language='vi',
+                    title=question[:50] + "..."
+                )
+                db.session.add(conversation)
+                db.session.commit()
+            
+            # Lưu tin nhắn user
+            user_msg = Message(
+                conversation_id=conversation.conversation_id,
+                sender='user',
+                message_text=question,
+                message_type='text',
+                sent_at=datetime.utcnow()
+            )
+            db.session.add(user_msg)
+            db.session.commit()
+            
+            # RAG pipeline
+            extraction_result = extract_user_intent_and_features(question)
+            extracted_features = extraction_result.get('extracted_features', {})
+            search_result = combined_search_with_filters(question, extracted_features)
+            search_results = search_result.get('results', [])
+            
+            response = generate_natural_response(
+                question, search_results, extracted_features,
+                conversation_id=conversation.conversation_id,
+                user_name=user_name
+            )
+            answer = response.get('answer')
+            
+            # Lưu câu trả lời bot
+            bot_msg = Message(
+                conversation_id=conversation.conversation_id,
+                sender='bot',
+                message_text=answer,
+                message_type='text',
+                sent_at=datetime.utcnow()
+            )
+            db.session.add(bot_msg)
+            db.session.commit()
+            
+            return {
+                'question': question,
+                'answer': answer,
+                'conversation_id': conversation.conversation_id,
+                'user_info': {'user_id': user_id, 'name': user_name}
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error in secure chat: {str(e)}")
+            db.session.rollback()
+            return {'message': 'Internal server error'}, 500
+
 @medical_chatbot_ns.route('/history/<int:conversation_id>')
 class ChatHistory(Resource):
     @medical_chatbot_ns.response(200, 'Success', history_response)
@@ -354,18 +450,22 @@ update_conversation_request = medical_chatbot_ns.model('UpdateConversationReques
 
 @medical_chatbot_ns.route('/conversations/<int:conversation_id>')
 class ConversationDetail(Resource):
-    @medical_chatbot_ns.expect(update_conversation_request)
+    @medical_chatbot_ns.expect(medical_chatbot_ns.model('UpdateConversationJWT', {
+        'title': fields.String(required=True, description='New title')
+    }))
     @medical_chatbot_ns.response(200, 'Success', conversation_model)
-    @medical_chatbot_ns.doc('update_conversation')
-    def put(self, conversation_id):
-        """Update conversation title"""
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @medical_chatbot_ns.doc('update_conversation', security='Bearer')
+    @token_required
+    def put(self, current_user, conversation_id):
+        """Update conversation title (JWT Required)"""
         try:
             data = request.json
-            user_id = data.get('user_id')
+            user_id = current_user['user_id']  # From JWT token
             new_title = data.get('title')
             
-            if not user_id or not new_title:
-                return {'message': 'user_id and title are required'}, 400
+            if not new_title:
+                return {'message': 'title is required'}, 400
             
             conversation = Conversation.query.get(conversation_id)
             if not conversation:
@@ -389,14 +489,14 @@ class ConversationDetail(Resource):
             db.session.rollback()
             return {'message': 'Internal server error'}, 500
     
-    @medical_chatbot_ns.doc('delete_conversation', params={'user_id': 'User ID'})
     @medical_chatbot_ns.response(200, 'Deleted')
-    def delete(self, conversation_id):
-        """Delete conversation and all its messages"""
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @medical_chatbot_ns.doc('delete_conversation', security='Bearer')
+    @token_required
+    def delete(self, current_user, conversation_id):
+        """Delete conversation and all its messages (JWT Required)"""
         try:
-            user_id = request.args.get('user_id', type=int)
-            if not user_id:
-                return {'message': 'user_id is required'}, 400
+            user_id = current_user['user_id']  # From JWT token
             
             conversation = Conversation.query.get(conversation_id)
             if not conversation:
@@ -478,19 +578,24 @@ regenerate_request = medical_chatbot_ns.model('RegenerateRequest', {
 
 @medical_chatbot_ns.route('/chat/regenerate')
 class RegenerateResponse(Resource):
-    @medical_chatbot_ns.expect(regenerate_request)
+    @medical_chatbot_ns.expect(medical_chatbot_ns.model('RegenerateJWT', {
+        'conversation_id': fields.Integer(required=True, description='Conversation ID'),
+        'message_id': fields.Integer(required=True, description='Bot message ID to regenerate')
+    }))
     @medical_chatbot_ns.response(200, 'Success', chat_response)
-    @medical_chatbot_ns.doc('regenerate_response')
-    def post(self):
-        """Regenerate bot response for a message"""
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @medical_chatbot_ns.doc('regenerate_response', security='Bearer')
+    @token_required
+    def post(self, current_user):
+        """Regenerate bot response for a message (JWT Required)"""
         try:
             data = request.json
-            user_id = data.get('user_id')
+            user_id = current_user['user_id']  # From JWT token
             conversation_id = data.get('conversation_id')
             message_id = data.get('message_id')
             
-            if not all([user_id, conversation_id, message_id]):
-                return {'message': 'user_id, conversation_id, and message_id are required'}, 400
+            if not all([conversation_id, message_id]):
+                return {'message': 'conversation_id and message_id are required'}, 400
             
             # Verify conversation ownership
             conversation = Conversation.query.get(conversation_id)
@@ -566,14 +671,14 @@ class RegenerateResponse(Resource):
 
 @medical_chatbot_ns.route('/conversations/<int:conversation_id>/archive')
 class ArchiveConversation(Resource):
-    @medical_chatbot_ns.doc('archive_conversation', params={'user_id': 'User ID'})
     @medical_chatbot_ns.response(200, 'Success')
-    def post(self, conversation_id):
-        """Archive or unarchive a conversation"""
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @medical_chatbot_ns.doc('archive_conversation', security='Bearer')
+    @token_required
+    def post(self, current_user, conversation_id):
+        """Archive or unarchive a conversation (JWT Required)"""
         try:
-            user_id = request.args.get('user_id', type=int)
-            if not user_id:
-                return {'message': 'user_id is required'}, 400
+            user_id = current_user['user_id']  # From JWT token
             
             conversation = Conversation.query.get(conversation_id)
             if not conversation:
@@ -596,14 +701,14 @@ class ArchiveConversation(Resource):
 
 @medical_chatbot_ns.route('/conversations/<int:conversation_id>/pin')
 class PinConversation(Resource):
-    @medical_chatbot_ns.doc('pin_conversation', params={'user_id': 'User ID'})
     @medical_chatbot_ns.response(200, 'Success')
-    def post(self, conversation_id):
-        """Pin or unpin a conversation"""
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @medical_chatbot_ns.doc('pin_conversation', security='Bearer')
+    @token_required
+    def post(self, current_user, conversation_id):
+        """Pin or unpin a conversation (JWT Required)"""
         try:
-            user_id = request.args.get('user_id', type=int)
-            if not user_id:
-                return {'message': 'user_id is required'}, 400
+            user_id = current_user['user_id']  # From JWT token
             
             conversation = Conversation.query.get(conversation_id)
             if not conversation:
@@ -626,14 +731,14 @@ class PinConversation(Resource):
 
 @medical_chatbot_ns.route('/messages/<int:message_id>')
 class MessageDetail(Resource):
-    @medical_chatbot_ns.doc('delete_message', params={'user_id': 'User ID'})
     @medical_chatbot_ns.response(200, 'Deleted')
-    def delete(self, message_id):
-        """Delete a specific message"""
+    @medical_chatbot_ns.response(401, 'Unauthorized')
+    @medical_chatbot_ns.doc('delete_message', security='Bearer')
+    @token_required
+    def delete(self, current_user, message_id):
+        """Delete a specific message (JWT Required)"""
         try:
-            user_id = request.args.get('user_id', type=int)
-            if not user_id:
-                return {'message': 'user_id is required'}, 400
+            user_id = current_user['user_id']  # From JWT token
             
             message = Message.query.get(message_id)
             if not message:

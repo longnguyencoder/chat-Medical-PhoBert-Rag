@@ -20,6 +20,11 @@ def register_user(email, password, full_name, language_preference='en'):
     otp_code = generate_otp()
     expires_at = datetime.utcnow() + timedelta(minutes=10)
     
+    print(f"\n[DEBUG REGISTER] Creating OTP:")
+    print(f"  Email: {email}")
+    print(f"  OTP Code: {otp_code}")
+    print(f"  Expires: {expires_at}")
+    
     # Save OTP
     otp = OTP(
         email=email,
@@ -29,6 +34,7 @@ def register_user(email, password, full_name, language_preference='en'):
     )
     db.session.add(otp)
     db.session.commit()
+    print(f"  ✅ OTP saved to database\n")
 
     # Save user
     hashed_password = generate_password_hash(password)
@@ -47,6 +53,11 @@ def register_user(email, password, full_name, language_preference='en'):
     return True, 'Registration initiated. Please check your email for OTP verification.'
 
 def verify_otp(email, otp_code, purpose):
+    print(f"\n[DEBUG VERIFY] Searching for OTP:")
+    print(f"  Email: {email}")
+    print(f"  Code: {otp_code}")
+    print(f"  Purpose: {purpose}")
+    
     otp = OTP.query.filter_by(
         email=email,
         otp_code=otp_code,
@@ -54,8 +65,24 @@ def verify_otp(email, otp_code, purpose):
         is_used=False
     ).first()
     
-    if not otp or otp.expires_at < datetime.utcnow():
+    if not otp:
+        print(f"  ❌ OTP NOT FOUND")
+        # Debug: Show all OTPs for this email
+        all_otps = OTP.query.filter_by(email=email).all()
+        print(f"  Total OTPs for {email}: {len(all_otps)}")
+        for o in all_otps:
+            print(f"    - Code: {o.otp_code}, Purpose: {o.purpose}, Used: {o.is_used}, Expires: {o.expires_at}")
         return False, 'Invalid or expired OTP'
+    
+    print(f"  ✅ OTP FOUND")
+    print(f"  Expires at: {otp.expires_at}")
+    print(f"  Current time: {datetime.utcnow()}")
+    
+    if otp.expires_at < datetime.utcnow():
+        print(f"  ❌ OTP EXPIRED\n")
+        return False, 'Invalid or expired OTP'
+    
+    print(f"  ✅ OTP VALID\n")
     
     otp.is_used = True
     
@@ -193,4 +220,4 @@ def resend_forgot_password_otp(email):
     db.session.commit()
     
     send_otp_email(email, otp_code, 'reset_password')
-    return True, 'OTP resent successfully' 
+    return True, 'OTP resent successfully'

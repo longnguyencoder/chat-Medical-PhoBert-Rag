@@ -1,0 +1,6 @@
+# Development Config - Disable Email
+# ===================================
+# Thêm dòng này vào .env để tắt email trong development
+
+# Tắt gửi email (OTP sẽ được in ra console)
+DISABLE_EMAIL=True

@@ -24,12 +24,23 @@ def create_app():
     # Load configuration
     app.config.from_object(Config)
     
-    # Configure API
+    # Configure API with JWT authorization
+    authorizations = {
+        'Bearer': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': "Type in the *'Value'* input box below: **'Bearer &lt;JWT&gt;'**, where JWT is the token"
+        }
+    }
+    
     api = Api(
         title='Medical Chatbot API',
         version='1.0',
         description='A medical question answering system using PhoBERT',
-        doc='/docs'
+        doc='/docs',
+        authorizations=authorizations,
+        security='Bearer'
     )
     
     # Initialize extensions
