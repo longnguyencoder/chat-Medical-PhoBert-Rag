@@ -392,9 +392,7 @@ Dự án này được cấp phép theo [MIT License](LICENSE.md).
 
 ## 📞 Liên hệ
 
-- **Email**: [vangiangpham.work@gmail.com]
-- **GitHub**: [github.com/phamvangjang]
-- **LinkedIn**: [linkedin.com/in/pham-van-giang]
+- 0398481719 - long0398481719@gmail.com
 
 ## 🙏 Lời cảm ơn
 

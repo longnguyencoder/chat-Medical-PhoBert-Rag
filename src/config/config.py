@@ -4,12 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Database
-    # SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL', 'sqlite:///instance/chatbot.db')
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    root_dir = os.path.dirname(os.path.dirname(basedir))
-    db_path = os.path.join(root_dir, 'instance', 'chatbot.db')
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + db_path
+    # Database - Using PostgreSQL
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL', 'sqlite:///instance/chatbot.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # PostgreSQL configuration
@@ -32,7 +28,7 @@ class Config:
     # Frontend
     FRONTEND_URL = os.getenv('FRONTEND_URL') 
 
-    # Database
+    # Database connection details (for reference)
     DB_HOST = os.getenv('DB_HOST')
     DB_NAME = os.getenv('DB_NAME')
     DB_USER = os.getenv('DB_USER')
