@@ -651,11 +651,26 @@ def generate_natural_response(
                 "confidence": "none"
             }
         
-        # Prepare context
+        # Prepare context - PRIORITIZE ORIGINAL ANSWER from dataset
         context_parts = []
         for idx, result in enumerate(search_results[:3], 1):
             metadata = result['metadata']
-            context_parts.append(f"""
+            
+            # Check if we have original Q&A from dataset (Excel/CSV)
+            original_answer = metadata.get('original_answer', '')
+            original_question = metadata.get('original_question', '')
+            
+            if original_answer and len(original_answer) > 50:
+                # Use original answer from dataset (more accurate)
+                context_parts.append(f"""
+[Nguồn {idx}] {metadata.get('source', 'Medical Database')}
+Câu hỏi gốc: {original_question if original_question else metadata.get('disease_name', 'N/A')}
+Câu trả lời: {original_answer}
+Độ liên quan: {result.get('relevance_score', 0):.2f}
+""")
+            else:
+                # Fallback to structured data
+                context_parts.append(f"""
 [Nguồn {idx}] Bệnh: {metadata.get('disease_name', 'N/A')}
 - Triệu chứng: {metadata.get('symptoms', 'N/A')}
 - Điều trị: {metadata.get('treatment', 'N/A')}
@@ -669,33 +684,35 @@ def generate_natural_response(
         if user_name:
             greeting_instruction = f'- Bắt đầu bằng "Chào bạn {user_name},"'
         
-        # Enhanced system prompt
+        # Enhanced system prompt - EMPHASIZE SOURCE ACCURACY
         system_prompt = f"""
 Bạn là Bác sĩ AI với 10 năm kinh nghiệm lâm sàng, chuyên tư vấn sức khỏe cho người Việt Nam.
 
-QUY TẮC BẮT BUỘC:
-1. CHỈ sử dụng thông tin từ [Nguồn] được cung cấp
-2. KHÔNG chẩn đoán chắc chắn (dùng "có thể", "khả năng")
-3. KHÔNG kê đơn thuốc cụ thể
-4. LUÔN khuyến cáo đi khám bác sĩ nếu:
-   • Triệu chứng kéo dài > 3 ngày
-   • Sốt cao > 39°C
-   • Có dấu hiệu nguy hiểm: khó thở, đau ngực, co giật
+QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):
+1. ✅ SỬ DỤNG CHÍNH XÁC thông tin từ [Nguồn] được cung cấp
+2. ✅ ƯU TIÊN trích dẫn "Câu trả lời" gốc từ nguồn (nếu có)
+3. ✅ Có thể diễn đạt lại cho tự nhiên NHƯNG KHÔNG thay đổi nội dung
+4. ❌ TUYỆT ĐỐI KHÔNG tự suy luận hoặc thêm thông tin không có trong nguồn
+5. ❌ KHÔNG chẩn đoán chắc chắn (dùng "có thể", "khả năng")
+6. ❌ KHÔNG kê đơn thuốc cụ thể
 
-PHONG CÁCH:
+CÁCH TRẢ LỜI:
 {greeting_instruction}
-- Chia thành 2-3 đoạn ngắn
-- Dùng bullet points (•) khi liệt kê
+- Trả lời DỰA TRÊN nội dung từ [Nguồn]
+- Nếu nguồn có "Câu trả lời" gốc → Dùng nội dung đó (có thể tóm tắt nếu quá dài)
+- Nếu chỉ có thông tin cấu trúc → Tổng hợp từ Triệu chứng, Điều trị, Phòng ngừa
+- Chia thành 2-3 đoạn ngắn, dùng bullet points (•)
 - Giọng điệu thân thiện, không gây hoảng loạn
 
+LUÔN KHUYẾN CÁO ĐI KHÁM BÁC SĨ NẾU:
+• Triệu chứng kéo dài > 3 ngày
+• Sốt cao > 39°C
+• Có dấu hiệu nguy hiểm: khó thở, đau ngực, co giật
+
 VÍ DỤ TRẢ LỜI TỐT:
-"Chào bạn {user_name if user_name else ''}, cảm cúm thường có các triệu chứng sau:
+"Chào bạn {user_name if user_name else ''}, 
 
-• Sốt nhẹ (37.5-38.5°C)
-• Chảy nước mũi, nghẹt mũi
-• Đau họng, ho khan
-
-Bạn nên nghỉ ngơi đầy đủ, uống nhiều nước. Nếu sốt cao hoặc kéo dài quá 3 ngày, hãy đến gặp bác sĩ nhé."
+Theo thông tin từ nguồn y tế, tình trạng kém ăn của bé cũng có thể do bé đang mọc răng hoặc do bé đang bệnh. Tuy nhiên, nếu bé vừa sử dụng kháng sinh xong mà vẫn còn sốt, ho và bụng chướng căng, bạn nên đưa bé đến cơ sở y tế gần nhất có chuyên khoa Nhi để thăm khám và làm các xét nghiệm cần thiết nhé."
 """
         
         
@@ -734,7 +751,7 @@ Hãy trả lời theo đúng quy tắc.""")
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.7,
+            temperature=0.3,  # Lower temperature for more consistent, source-based answers
             max_tokens=800
         )
         

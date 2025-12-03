@@ -113,7 +113,7 @@ Vietnam Travel Assistant API là một hệ thống thông minh được phát t
 ### Bước 1: Clone Repository
 
 ```bash
-git clone https://github.com/phamvangjang/ChatbotTravel_server
+
 cd ChatbotTravel_server
 ```
 
@@ -385,10 +385,10 @@ Dự án này được cấp phép theo [MIT License](LICENSE.md).
 ## 👥 Tác giả
 
 **Sinh viên thực hiện**: [Nguyễn Văn Long]
-**Giảng viên hướng dẫn**: [ThS Cô Trần Thị Dung]
+**Giảng viên hướng dẫn**: [Nguyễn Thiện Dương]
 **Trường**: [Đại học Giao Thông Vận Tải ]
-**Khoa**: [Tên khoa]
-**Năm**: 2024
+**Khoa**: [Khoa CNTT]
+**Năm**: 2025
 
 ## 📞 Liên hệ
 
