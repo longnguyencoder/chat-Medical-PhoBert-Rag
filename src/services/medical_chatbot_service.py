@@ -11,6 +11,7 @@ import numpy as np
 import sys
 import logging
 import re
+from collections import defaultdict
 
 # Configure logging
 logging.basicConfig(
@@ -25,6 +26,7 @@ src_dir = os.path.dirname(os.path.dirname(current_dir))
 sys.path.append(src_dir)
 
 from src.nlp_model.phobert_embedding import PhoBERTEmbeddingFunction
+from src.services.bm25_search import BM25SearchEngine, create_searchable_text
 
 # Import Cross-Encoder for reranking
 try:
@@ -35,6 +37,10 @@ try:
 except ImportError:
     RERANKING_ENABLED = False
     logger.warning("⚠ sentence-transformers not installed. Reranking disabled.")
+
+# Initialize BM25 search engine
+BM25_ENGINE = BM25SearchEngine()
+BM25_ENABLED = False  # Will be set to True after indexing
 
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -56,6 +62,10 @@ MEDICAL_KEYWORDS = {
 
 # Confidence threshold for search results
 CONFIDENCE_THRESHOLD = 0.15
+
+# Hybrid search weights (BM25 + Vector)
+HYBRID_BM25_WEIGHT = 0.3  # 30% BM25 keyword matching
+HYBRID_VECTOR_WEIGHT = 0.7  # 70% semantic vector search
 
 # ═══════════════════════════════════════════════════════════════
 # RAG OPTIMIZATION: Query Expansion & Reranking
@@ -236,6 +246,48 @@ def get_or_create_collection():
         )
         return collection
 
+def initialize_bm25_index():
+    """
+    Initialize BM25 index with all documents from ChromaDB.
+    This should be called once at startup.
+    """
+    global BM25_ENABLED
+    
+    try:
+        logger.info("Initializing BM25 index...")
+        collection = get_or_create_collection()
+        
+        # Get all documents from ChromaDB
+        all_docs = collection.get(
+            include=["documents", "metadatas"]
+        )
+        
+        if not all_docs['ids']:
+            logger.warning("No documents found in ChromaDB. BM25 index not created.")
+            return False
+        
+        # Create searchable texts from metadata
+        searchable_texts = [
+            create_searchable_text(metadata) 
+            for metadata in all_docs['metadatas']
+        ]
+        
+        # Index documents
+        BM25_ENGINE.index_documents(
+            documents=searchable_texts,
+            document_ids=all_docs['ids'],
+            metadatas=all_docs['metadatas']
+        )
+        
+        BM25_ENABLED = True
+        logger.info(f"✓ BM25 index initialized with {len(all_docs['ids'])} documents")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize BM25 index: {e}")
+        BM25_ENABLED = False
+        return False
+
 def normalize_similarity(distance: float) -> float:
     """Convert L2 distance to a normalized similarity score"""
     if distance <= 0:
@@ -358,20 +410,122 @@ def extract_user_intent_and_features(question: str) -> Dict[str, Any]:
             "extracted_features": {}
         }
 
+def hybrid_search(
+    question: str,
+    n_results: int = 10
+) -> List[Dict[str, Any]]:
+    """
+    Perform hybrid search combining BM25 (keyword) and Vector (semantic) search.
+    
+    Args:
+        question: User's search query
+        n_results: Number of results to return
+        
+    Returns:
+        Combined and scored results from both search methods
+    """
+    results_dict = defaultdict(lambda: {'bm25_score': 0.0, 'vector_score': 0.0})
+    
+    # === BM25 KEYWORD SEARCH ===
+    if BM25_ENABLED:
+        try:
+            bm25_results = BM25_ENGINE.search(question, top_k=n_results * 2)
+            
+            # Normalize BM25 scores to 0-1 range
+            if bm25_results:
+                max_bm25 = max(r['bm25_score'] for r in bm25_results)
+                if max_bm25 > 0:
+                    for result in bm25_results:
+                        doc_id = result['id']
+                        normalized_score = result['bm25_score'] / max_bm25
+                        results_dict[doc_id]['bm25_score'] = normalized_score
+                        results_dict[doc_id]['metadata'] = result['metadata']
+                        results_dict[doc_id]['document'] = result['document']
+                        results_dict[doc_id]['id'] = doc_id
+            
+            logger.info(f"BM25 found {len(bm25_results)} results")
+        except Exception as e:
+            logger.error(f"BM25 search failed: {e}")
+    
+    # === VECTOR SEMANTIC SEARCH ===
+    try:
+        collection = get_or_create_collection()
+        query_vec = phobert_ef([question])[0]
+        vector_results = collection.query(
+            query_embeddings=[query_vec],
+            n_results=n_results * 2,
+            include=["metadatas", "documents", "distances"]
+        )
+        
+        # Process vector results
+        for i in range(len(vector_results['ids'][0])):
+            doc_id = vector_results['ids'][0][i]
+            distance = vector_results['distances'][0][i]
+            
+            # Normalize distance to similarity score (0-1)
+            vector_score = normalize_similarity(distance)
+            
+            results_dict[doc_id]['vector_score'] = vector_score
+            results_dict[doc_id]['metadata'] = vector_results['metadatas'][0][i]
+            results_dict[doc_id]['document'] = vector_results['documents'][0][i]
+            results_dict[doc_id]['id'] = doc_id
+            results_dict[doc_id]['distance'] = distance
+        
+        logger.info(f"Vector search found {len(vector_results['ids'][0])} results")
+    except Exception as e:
+        logger.error(f"Vector search failed: {e}")
+        return []
+    
+    # === COMBINE SCORES ===
+    combined_results = []
+    for doc_id, scores in results_dict.items():
+        # Hybrid score: weighted combination
+        hybrid_score = (
+            HYBRID_BM25_WEIGHT * scores['bm25_score'] + 
+            HYBRID_VECTOR_WEIGHT * scores['vector_score']
+        )
+        
+        combined_results.append({
+            'id': scores['id'],
+            'metadata': scores['metadata'],
+            'document': scores['document'],
+            'bm25_score': scores['bm25_score'],
+            'vector_score': scores['vector_score'],
+            'hybrid_score': hybrid_score,
+            'relevance_score': hybrid_score,  # For compatibility
+            'distance': scores.get('distance', 0),
+            'score_breakdown': {
+                'bm25': round(scores['bm25_score'], 3),
+                'vector': round(scores['vector_score'], 3),
+                'hybrid': round(hybrid_score, 3)
+            }
+        })
+    
+    # Sort by hybrid score
+    combined_results.sort(key=lambda x: x['hybrid_score'], reverse=True)
+    
+    logger.info(f"Hybrid search combined {len(combined_results)} unique results")
+    if combined_results:
+        top = combined_results[0]
+        logger.info(f"Top result: BM25={top['bm25_score']:.3f}, Vector={top['vector_score']:.3f}, Hybrid={top['hybrid_score']:.3f}")
+    
+    return combined_results[:n_results]
+
 def combined_search_with_filters(
     question: str,
     extracted_features: Dict[str, Any],
     n_results: int = 10
 ) -> Dict[str, Any]:
     """
-    Perform hybrid semantic search with query expansion and reranking.
+    Perform hybrid search with query expansion and reranking.
     
-    NEW FEATURES:
+    FEATURES:
+    - Hybrid Search: BM25 (keyword) + Vector (semantic)
     - Query Expansion: Generate similar queries to find more results
     - Reranking: Use Cross-Encoder to re-score results for better accuracy
     """
     try:
-        logger.info(f"Searching for: {question}")
+        logger.info(f"🔍 Hybrid search for: {question}")
         collection = get_or_create_collection()
         count = collection.count()
         if count == 0:
@@ -382,35 +536,27 @@ def combined_search_with_filters(
         expanded_queries = expand_query(question)
         logger.info(f"Expanded to {len(expanded_queries)} queries")
         
-        # Search with all expanded queries
+        # === HYBRID SEARCH (BM25 + Vector) ===
         all_results = {}  # Use dict to deduplicate by ID
+        
         for query in expanded_queries:
-            initial_n = min(n_results * 2, count)
-            query_vec = phobert_ef([query])[0]
-            results = collection.query(
-                query_embeddings=[query_vec],
-                n_results=initial_n,
-                include=["metadatas", "documents", "distances"]
-            )
+            # Perform hybrid search for each expanded query
+            hybrid_results = hybrid_search(query, n_results=n_results * 2)
             
-            # Process results
-            for i in range(len(results['ids'][0])):
-                result_id = results['ids'][0][i]
-                if result_id not in all_results:  # Avoid duplicates
-                    metadata = results['metadatas'][0][i]
-                    document = results['documents'][0][i]
-                    distance = results['distances'][0][i]
-                    final_score, score_breakdown = calculate_combined_score(
-                        distance, question, document, metadata  # Use original question
-                    )
+            # Merge results (keep best score for each document)
+            for result in hybrid_results:
+                result_id = result['id']
+                if result_id not in all_results or result['hybrid_score'] > all_results[result_id]['relevance_score']:
                     all_results[result_id] = {
                         'id': result_id,
-                        'metadata': metadata,
-                        'document': document,
-                        'distance': distance,
-                        'relevance_score': final_score,
-                        'score_breakdown': score_breakdown,
-                        'confidence': 'high' if final_score > 0.7 else 'medium' if final_score > 0.5 else 'low'
+                        'metadata': result['metadata'],
+                        'document': result['document'],
+                        'distance': result.get('distance', 0),
+                        'relevance_score': result['hybrid_score'],
+                        'score_breakdown': result['score_breakdown'],
+                        'bm25_score': result['bm25_score'],
+                        'vector_score': result['vector_score'],
+                        'confidence': 'high' if result['hybrid_score'] > 0.7 else 'medium' if result['hybrid_score'] > 0.5 else 'low'
                     }
         
         # Convert to list and sort
@@ -441,7 +587,9 @@ def combined_search_with_filters(
             "total_found": len(filtered_results),
             "total_searched": len(scored_results),
             "query_expansion_used": len(expanded_queries) > 1,
-            "reranking_used": RERANKING_ENABLED
+            "reranking_used": RERANKING_ENABLED,
+            "hybrid_search_used": BM25_ENABLED,
+            "search_method": "Hybrid (BM25 + Vector)" if BM25_ENABLED else "Vector Only"
         }
     except Exception as e:
         logger.error(f"Error in search: {str(e)}", exc_info=True)

@@ -48,148 +48,7 @@ history_response = medical_chatbot_ns.model('HistoryResponse', {
     'messages': fields.List(fields.Nested(history_item))
 })
 
-@medical_chatbot_ns.route('/chat')
-class MedicalChat(Resource):
-    @medical_chatbot_ns.expect(chat_request)
-    @medical_chatbot_ns.response(200, 'Success', chat_response)
-    @medical_chatbot_ns.response(400, 'Bad Request')
-    @medical_chatbot_ns.response(500, 'Internal Server Error')
-    @medical_chatbot_ns.doc('chat_with_medical_bot')
-    def post(self):
-        """
-        Chat with the medical assistant powered by PhoBERT RAG.
-        Saves chat history if user_id is provided.
-        """
-        try:
-            data = request.json
-            
-            # Validate request
-            if not data:
-                return {'message': 'Request body is required'}, 400
-            
-            question = data.get('question', '').strip()
-            user_id = data.get('user_id')
-            conversation_id = data.get('conversation_id')
-            
-            if not question:
-                return {'message': 'Question is required'}, 400
-            
-            # Handle Chat History - Start/Continue Conversation
-            conversation = None
-            if user_id:
-                if conversation_id:
-                    conversation = Conversation.query.filter_by(conversation_id=conversation_id, user_id=user_id).first()
-                
-                if not conversation:
-                    # Create new conversation
-                    conversation = Conversation(
-                        user_id=user_id,
-                        started_at=datetime.utcnow(),
-                        source_language='vi',
-                        title=question[:50] + "..."
-                    )
-                    db.session.add(conversation)
-                    db.session.commit()
-                    conversation_id = conversation.conversation_id
-                
-                # Save User Message
-                user_msg = Message(
-                    conversation_id=conversation.conversation_id,
-                    sender='user',
-                    message_text=question,
-                    message_type='text',
-                    sent_at=datetime.utcnow()
-                )
-                db.session.add(user_msg)
-                db.session.commit()
 
-            logger.info(f"Processing question: {question[:100]}...")
-            
-            # 1. Extract intent
-            extraction_result = extract_user_intent_and_features(question)
-            extracted_features = extraction_result.get('extracted_features', {})
-            
-            # 2. Search
-            search_result = combined_search_with_filters(question, extracted_features)
-            search_results = search_result.get('results', [])
-            
-            # Get user name if available
-            user_name = None
-            if user_id:
-                user = User.query.get(user_id)
-                if user and user.full_name:
-                    user_name = user.full_name
-
-            # 3. Generate response with conversation context
-            response = generate_natural_response(
-                question, 
-                search_results, 
-                extracted_features,
-                conversation_id=conversation.conversation_id if conversation else None,
-                user_name=user_name
-            )
-            answer = response.get('answer')
-            
-            # Save Bot Response
-            if conversation:
-                bot_msg = Message(
-                    conversation_id=conversation.conversation_id,
-                    sender='bot',
-                    message_text=answer,
-                    message_type='text',
-                    sent_at=datetime.utcnow()
-                )
-                db.session.add(bot_msg)
-                db.session.commit()
-                
-                # Auto-generate summary every 5 messages
-                message_count = Message.query.filter_by(
-                    conversation_id=conversation.conversation_id
-                ).count()
-                
-                if message_count >= 5 and message_count % 5 == 0:
-                    from src.services.medical_chatbot_service import generate_conversation_summary
-                    summary = generate_conversation_summary(conversation.conversation_id)
-                    if summary:
-                        conversation.summary = summary
-                        db.session.commit()
-                        logger.info(f"✓ Updated conversation summary (total messages: {message_count})")
-            
-            
-            # Build response
-            result = {
-                'question': question,
-                'answer': answer,
-                'confidence': response.get('confidence', 'unknown'),
-                'conversation_id': conversation_id,
-                'avg_relevance_score': response.get('avg_relevance_score'),
-                'extraction': {
-                    'intent': extraction_result.get('intent'),
-                    'features': extracted_features
-                },
-                'search_summary': {
-                    'total_found': len(search_results),
-                    'total_searched': search_result.get('total_searched', 0)
-                },
-                'sources': [
-                    {
-                        'disease_name': src['metadata'].get('disease_name'),
-                        'relevance_score': src.get('relevance_score'),
-                        'confidence': src.get('confidence')
-                    }
-                    for src in response.get('sources', [])
-                ]
-            }
-            
-            return result, 200
-            
-        except Exception as e:
-            logger.error(f"Error processing request: {str(e)}", exc_info=True)
-            db.session.rollback()
-            return {
-                'message': 'Internal server error',
-                'error': str(e)
-            }, 500
 
 # ============================================================================
 # API MỚI: CHAT VỚI JWT AUTHENTICATION
@@ -250,18 +109,30 @@ class SecureMedicalChat(Resource):
             db.session.add(user_msg)
             db.session.commit()
             
-            # RAG pipeline
+            # RAG pipeline with CACHING
             extraction_result = extract_user_intent_and_features(question)
             extracted_features = extraction_result.get('extracted_features', {})
-            search_result = combined_search_with_filters(question, extracted_features)
-            search_results = search_result.get('results', [])
             
-            response = generate_natural_response(
-                question, search_results, extracted_features,
+            # CACHED Search
+            search_result = cached_search(
+                combined_search_with_filters,
+                question,
+                extracted_features
+            )
+            search_results = search_result.get('results', [])
+            search_from_cache = search_result.get('from_cache', False)
+            
+            # CACHED Response (automatically skips cache for conversation-specific queries)
+            response = cached_response(
+                generate_natural_response,
+                question,
+                search_results,
+                extracted_features,
                 conversation_id=conversation.conversation_id,
                 user_name=user_name
             )
             answer = response.get('answer')
+            response_from_cache = response.get('from_cache', False)
             
             # Lưu câu trả lời bot
             bot_msg = Message(
@@ -278,7 +149,11 @@ class SecureMedicalChat(Resource):
                 'question': question,
                 'answer': answer,
                 'conversation_id': conversation.conversation_id,
-                'user_info': {'user_id': user_id, 'name': user_name}
+                'user_info': {'user_id': user_id, 'name': user_name},
+                'cache_info': {
+                    'search_cached': search_from_cache,
+                    'response_cached': response_from_cache
+                }
             }, 200
             
         except Exception as e:
@@ -758,3 +633,55 @@ class MessageDetail(Resource):
             logger.error(f"Error deleting message: {str(e)}")
             db.session.rollback()
             return {'message': 'Internal server error'}, 500
+
+
+# ============================================================================
+# CACHED ENDPOINTS - Performance Optimization
+# ============================================================================
+
+from src.services.cached_chatbot_service import (
+    cached_search,
+    cached_response,
+    get_cache_stats,
+    clear_cache
+)
+
+# Cache stats model
+cache_stats_model = medical_chatbot_ns.model('CacheStats', {
+    'size': fields.Integer(description='Current cache size'),
+    'max_size': fields.Integer(description='Maximum cache size'),
+    'hits': fields.Integer(description='Cache hits'),
+    'misses': fields.Integer(description='Cache misses'),
+    'hit_rate': fields.Float(description='Cache hit rate percentage'),
+    'total_requests': fields.Integer(description='Total requests')
+})
+
+
+
+
+@medical_chatbot_ns.route('/cache/stats')
+class CacheStats(Resource):
+    @medical_chatbot_ns.response(200, 'Success', cache_stats_model)
+    @medical_chatbot_ns.doc('get_cache_statistics')
+    def get(self):
+        """Get cache statistics"""
+        try:
+            stats = get_cache_stats()
+            return stats, 200
+        except Exception as e:
+            logger.error(f"Error getting cache stats: {str(e)}")
+            return {'message': f'Error: {str(e)}'}, 500
+
+
+@medical_chatbot_ns.route('/cache/clear')
+class CacheClear(Resource):
+    @medical_chatbot_ns.response(200, 'Success')
+    @medical_chatbot_ns.doc('clear_cache')
+    def post(self):
+        """Clear all cache entries"""
+        try:
+            clear_cache()
+            return {'message': 'Cache cleared successfully'}, 200
+        except Exception as e:
+            logger.error(f"Error clearing cache: {str(e)}")
+            return {'message': f'Error: {str(e)}'}, 500

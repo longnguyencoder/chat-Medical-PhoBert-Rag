@@ -61,5 +61,12 @@ def create_app():
     
     with app.app_context():
         db.create_all()
+        
+        # Initialize BM25 index for hybrid search
+        try:
+            from src.services.medical_chatbot_service import initialize_bm25_index
+            initialize_bm25_index()
+        except Exception as e:
+            print(f"Warning: Failed to initialize BM25 index: {e}")
     
     return app

@@ -384,7 +384,7 @@ Dự án này được cấp phép theo [MIT License](LICENSE.md).
 
 ## 👥 Tác giả
 
-**Sinh viên thực hiện**: [Phạm Văn Giang]
+**Sinh viên thực hiện**: [Nguyễn Văn Long]
 **Giảng viên hướng dẫn**: [ThS Cô Trần Thị Dung]
 **Trường**: [Đại học Giao Thông Vận Tải ]
 **Khoa**: [Tên khoa]

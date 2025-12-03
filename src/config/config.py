@@ -4,8 +4,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Database - Using PostgreSQL
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL', 'sqlite:///instance/chatbot.db')
+    # Get base directory for absolute paths
+    BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    SQLITE_DB_PATH = os.path.join(BASE_DIR, '..', 'instance', 'chatbot.db')
+    
+    # Database - Using PostgreSQL or SQLite
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL', f'sqlite:///{SQLITE_DB_PATH}')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # PostgreSQL configuration
@@ -34,3 +38,9 @@ class Config:
     DB_USER = os.getenv('DB_USER')
     DB_PASSWORD = os.getenv('DB_PASSWORD')
     DB_PORT = os.getenv('DB_PORT')
+    
+    # Cache settings
+    CACHE_ENABLED = os.getenv('CACHE_ENABLED', 'True').lower() == 'true'
+    CACHE_MAX_SIZE = int(os.getenv('CACHE_MAX_SIZE', 1000))  # Max entries
+    CACHE_TTL_SEARCH = int(os.getenv('CACHE_TTL_SEARCH', 3600))  # 1 hour for search results
+    CACHE_TTL_RESPONSE = int(os.getenv('CACHE_TTL_RESPONSE', 1800))  # 30 min for responses
