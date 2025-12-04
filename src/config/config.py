@@ -8,11 +8,21 @@ class Config:
     BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     SQLITE_DB_PATH = os.path.join(BASE_DIR, '..', 'instance', 'chatbot.db')
     
-    # Database - Using PostgreSQL or SQLite
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL', f'sqlite:///{SQLITE_DB_PATH}')
+    # ========================================================================
+    # DATABASE CONFIGURATION - Chọn 1 trong 2 options dưới đây
+    # ========================================================================
+    
+    # OPTION 1: SQLite (Development) - Uncomment dòng này để dùng SQLite
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{SQLITE_DB_PATH}'
+    
+    # OPTION 2: PostgreSQL (Production) - Uncomment dòng này để dùng PostgreSQL
+    # SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL')
+    
+    # ========================================================================
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # PostgreSQL configuration
+    # PostgreSQL configuration (chỉ dùng khi chọn PostgreSQL)
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
