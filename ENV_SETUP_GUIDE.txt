@@ -1,0 +1,18 @@
+# .env Configuration for Next-Question Suggestions
+# =================================================
+
+# Thêm các dòng sau vào file .env:
+
+# OpenAI Configuration (for Next-Question Suggestions)
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4o-mini
+ENABLE_SUGGESTIONS=True
+
+# Giải thích:
+# - OPENAI_API_KEY: API key từ OpenAI (lấy tại https://platform.openai.com/api-keys)
+# - OPENAI_MODEL: Dùng gpt-4o-mini (rẻ hơn 20x so với gpt-4)
+# - ENABLE_SUGGESTIONS: Bật/tắt tính năng suggestions (True/False)
+
+# Chi phí ước tính:
+# - gpt-4o-mini: ~$0.0001 mỗi request
+# - 1000 requests = ~$0.10 (rất rẻ!)

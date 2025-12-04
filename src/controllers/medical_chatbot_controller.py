@@ -13,6 +13,7 @@ from src.models.message import Message
 from src.models.conversation import Conversation
 from src.models.user import User
 from src.utils.auth_middleware import token_required  # Import decorator JWT
+from src.services.suggestion_agent_service import generate_next_questions  # Next-Question Agent
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -145,9 +146,21 @@ class SecureMedicalChat(Resource):
             db.session.add(bot_msg)
             db.session.commit()
             
+            # Generate next-question suggestions
+            suggestions = []
+            try:
+                suggestions = generate_next_questions(
+                    user_question=question,
+                    bot_answer=answer
+                )
+            except Exception as e:
+                logger.warning(f"Failed to generate suggestions: {e}")
+                # Không block response nếu suggestion fail
+            
             return {
                 'question': question,
                 'answer': answer,
+                'suggestions': suggestions,  # Next-question suggestions
                 'conversation_id': conversation.conversation_id,
                 'user_info': {'user_id': user_id, 'name': user_name},
                 'cache_info': {

@@ -54,3 +54,8 @@ class Config:
     CACHE_MAX_SIZE = int(os.getenv('CACHE_MAX_SIZE', 1000))  # Max entries
     CACHE_TTL_SEARCH = int(os.getenv('CACHE_TTL_SEARCH', 3600))  # 1 hour for search results
     CACHE_TTL_RESPONSE = int(os.getenv('CACHE_TTL_RESPONSE', 1800))  # 30 min for responses
+    
+    # OpenAI Configuration (for Next-Question Suggestions)
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')  # Cheaper than gpt-4
+    ENABLE_SUGGESTIONS = os.getenv('ENABLE_SUGGESTIONS', 'True').lower() == 'true'
