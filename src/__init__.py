@@ -24,6 +24,11 @@ def create_app():
     # Load configuration
     app.config.from_object(Config)
     
+    # Cấu hình cho file upload (Speech-to-Text)
+    # MAX_CONTENT_LENGTH: Giới hạn kích thước request (25MB)
+    # UPLOAD_FOLDER: Thư mục lưu file tạm (không dùng vì dùng tempfile)
+    app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB
+    
     # Configure API with JWT authorization
     authorizations = {
         'Bearer': {
@@ -54,10 +59,12 @@ def create_app():
     from src.controllers.auth_controller import auth_ns
     from src.controllers.medical_chatbot_controller import medical_chatbot_ns
     from src.controllers.notification_controller import notification_ns
+    from src.controllers.speech_controller import speech_ns  # Speech-to-Text API
     
     api.add_namespace(auth_ns, path='/api/auth')
     api.add_namespace(medical_chatbot_ns, path='/api/medical-chatbot')
     api.add_namespace(notification_ns, path='/api/notification')
+    api.add_namespace(speech_ns, path='/api/speech')  # Speech-to-Text endpoints
     
     with app.app_context():
         db.create_all()

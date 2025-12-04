@@ -202,8 +202,15 @@ class ChatHistory(Resource):
                 ]
             }, 200
         except Exception as e:
-            logger.error(f"Error retrieving history: {str(e)}")
-            return {'message': 'Internal server error'}, 500
+            import traceback
+            error_detail = traceback.format_exc()
+            logger.error(f"Error retrieving history: {str(e)}\n{error_detail}")
+            # Return detailed error for debugging
+            return {
+                'message': 'Internal server error',
+                'error': str(e),
+                'detail': error_detail
+            }, 500
 
 @medical_chatbot_ns.route('/health')
 class HealthCheck(Resource):
