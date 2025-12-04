@@ -11,6 +11,7 @@ from src.services.auth_service import (
 )
 from src.services.email_service import send_otp_email
 from src.models.base import db
+from src.utils.auth_middleware import token_required
 
 auth_ns = Namespace('auth', description='Authentication operations')
 
@@ -56,7 +57,6 @@ login_response = auth_ns.model('LoginResponse', {
 })
 
 update_name_model = auth_ns.model('UpdateName', {
-    'user_id': fields.Integer(required=True, description='User ID'),
     'full_name': fields.String(required=True, description='New full name')
 })
 
@@ -183,15 +183,33 @@ class ResetPassword(Resource):
 class UpdateName(Resource):
     @auth_ns.expect(update_name_model)
     @auth_ns.response(200, 'User name updated successfully')
+    @auth_ns.response(401, 'Unauthorized')
     @auth_ns.response(404, 'User not found')
-    def put(self):
+    @token_required
+    def put(self, current_user):
+        """Update user's full name (requires authentication)"""
         data = auth_ns.payload
-        if not all(k in data for k in ('user_id', 'full_name')):
-            return {'message': 'Missing required fields'}, 400
-        success, message = update_user_name(data['user_id'], data['full_name'])
+        
+        # Validate input
+        if 'full_name' not in data:
+            return {'message': 'Missing full_name field'}, 400
+        
+        # Get user_id from JWT token (not from request body)
+        user_id = current_user['user_id']
+        
+        # Update user name
+        success, message = update_user_name(user_id, data['full_name'])
+        
         if not success:
             return {'message': message}, 404
-        return {'message': message}, 200
+        
+        return {
+            'message': message,
+            'user': {
+                'user_id': user_id,
+                'full_name': data['full_name']
+            }
+        }, 200
 
 @auth_ns.route('/resend-register-otp')
 class ResendRegisterOTP(Resource):
@@ -219,4 +237,4 @@ class ResendForgotPasswordOTP(Resource):
         success, message = resend_forgot_password_otp(data['email'])
         if not success:
             return {'message': message}, 404
-        return {'message': message}, 200 
+        return {'message': message}, 200

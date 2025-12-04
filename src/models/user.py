@@ -11,5 +11,6 @@ class User(db.Model):
     language_preference = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_verified = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)  # Admin role
     
-    conversations = db.relationship('Conversation', backref='user', lazy=True) 
+    conversations = db.relationship('Conversation', backref='user', lazy=True)

@@ -1,14 +1,14 @@
-# Vietnam Travel Assistant API
+# Medical Chatbot API - PhoBERT RAG System
 
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Flask](https://img.shields.io/badge/Flask-3.0.2-green.svg)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--3.5--turbo-purple.svg)
+![PhoBERT](https://img.shields.io/badge/PhoBERT-RAG-purple.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**Hệ thống API thông minh hỗ trợ du lịch Việt Nam với AI Chatbot đa ngôn ngữ**
+**Hệ thống API Chatbot Y tế thông minh sử dụng PhoBERT và RAG cho tiếng Việt**
 
 [Features](#tính-năng) • [Installation](#cài-đặt) • [API Documentation](#tài-liệu-api) • [Contributing](#đóng-góp)
 
@@ -18,31 +18,32 @@
 
 ## 📋 Tổng quan
 
-Vietnam Travel Assistant API là một hệ thống thông minh được phát triển như đồ án tốt nghiệp, cung cấp thông tin chi tiết về các địa điểm du lịch tại Việt Nam và trả lời câu hỏi của người dùng thông qua AI Chatbot đa ngôn ngữ. Hệ thống tích hợp công nghệ AI/ML để cung cấp trải nghiệm du lịch tối ưu.
+Medical Chatbot API là một hệ thống chatbot y tế thông minh được phát triển như đồ án tốt nghiệp, sử dụng PhoBERT (mô hình BERT cho tiếng Việt) kết hợp với RAG (Retrieval-Augmented Generation) để trả lời các câu hỏi y tế bằng tiếng Việt. Hệ thống tích hợp công nghệ AI/ML để cung cấp thông tin y tế chính xác và đáng tin cậy.
 
 ### 🎯 Mục tiêu dự án
 
-- Xây dựng hệ thống tư vấn du lịch thông minh cho Việt Nam
-- Hỗ trợ đa ngôn ngữ (Tiếng Việt, Anh, Trung, Nhật, Hàn)
-- Tích hợp AI để phân tích và trả lời câu hỏi du lịch
+- Xây dựng hệ thống chatbot y tế thông minh cho người Việt Nam
+- Sử dụng PhoBERT để hiểu ngữ nghĩa tiếng Việt tốt hơn
+- Tích hợp RAG để truy xuất và tạo câu trả lời chính xác
 - Cung cấp API RESTful cho ứng dụng frontend
-- Quản lý lịch trình du lịch cá nhân hóa
+- Quản lý lịch sử hội thoại và phân quyền admin
 
 ## ✨ Tính năng
 
-### 🤖 AI Chatbot Đa ngôn ngữ
+### 🤖 AI Chatbot Y tế với PhoBERT
 
-- **Nhận diện ngôn ngữ tự động**: Hỗ trợ 5 ngôn ngữ (Việt, Anh, Trung, Nhật, Hàn)
-- **Xử lý câu hỏi thông minh**: Sử dụng OpenAI GPT-3.5-turbo
-- **Tìm kiếm ngữ nghĩa**: ChromaDB với sentence-transformers
-- **Trả lời tự nhiên**: Tạo câu trả lời như hướng dẫn viên thực thụ
+- **PhoBERT Model**: Sử dụng vinai/phobert-base-v2 cho tiếng Việt
+- **RAG System**: Retrieval-Augmented Generation cho câu trả lời chính xác
+- **Hybrid Search**: Kết hợp BM25 và Vector Search
+- **ChromaDB**: Vector database cho semantic search
+- **Caching**: Tối ưu hiệu suất với caching thông minh
 
-### 🗺️ Quản lý Địa điểm Du lịch
+### � Tìm kiếm Y tế Thông minh
 
-- **Cơ sở dữ liệu địa điểm**: Hơn 1000+ địa điểm tại TP.HCM
-- **Phân loại địa điểm**: Bảo tàng, công viên, nhà hàng, khách sạn, chợ, v.v.
-- **Thông tin chi tiết**: Mô tả, địa chỉ, loại hình, khu vực
-- **Tìm kiếm thông minh**: Dựa trên từ khóa và ngữ nghĩa
+- **Semantic Search**: Tìm kiếm dựa trên ngữ nghĩa
+- **BM25 Ranking**: Xếp hạng kết quả theo độ liên quan
+- **Medical Knowledge Base**: Cơ sở dữ liệu y tế tiếng Việt
+- **Context-aware**: Hiểu ngữ cảnh câu hỏi
 
 ### 👤 Hệ thống Xác thực & Quản lý Người dùng
 
@@ -50,32 +51,28 @@ Vietnam Travel Assistant API là một hệ thống thông minh được phát t
 - **Quản lý profile**: Cập nhật thông tin cá nhân
 - **Quên mật khẩu**: Gửi OTP qua email
 - **JWT Authentication**: Bảo mật API endpoints
+- **Role-based Access Control**: Phân quyền Admin/User
 
 ### 💬 Hệ thống Chat & Lịch sử
 
-- **Tạo cuộc trò chuyện**: Quản lý các phiên chat
+- **Tạo cuộc trò chuyện**: Quản lý các phiên chat y tế
 - **Lưu trữ tin nhắn**: Lịch sử trò chuyện đầy đủ
-- **Đa ngôn ngữ**: Hỗ trợ chat bằng nhiều ngôn ngữ
-- **Voice messages**: Hỗ trợ tin nhắn thoại
+- **Conversation Summary**: Tóm tắt cuộc hội thoại tự động
+- **Voice-to-Text**: Hỗ trợ nhập câu hỏi bằng giọng nói
+- **Text-to-Speech**: Đọc câu trả lời bằng giọng nói
 
-### 📅 Quản lý Lịch trình Du lịch
+### 📊 Admin Dashboard (Mới)
 
-- **Tạo lịch trình**: Thêm địa điểm vào lịch trình
-- **Quản lý thời gian**: Sắp xếp theo ngày và thời gian
-- **Nhắc nhở tự động**: Hệ thống scheduler gửi email nhắc nhở
-- **Chia sẻ lịch trình**: Chia sẻ với bạn bè
-
-### 🗺️ Tích hợp Bản đồ
-
-- **Mapbox Integration**: Hiển thị địa điểm trên bản đồ
-- **Tìm kiếm theo khu vực**: Lọc địa điểm theo quận/huyện
-- **Định tuyến**: Gợi ý đường đi giữa các địa điểm
+- **User Statistics**: Thống kê người dùng (tổng, verified, unverified)
+- **Conversation Stats**: Thống kê hội thoại và tin nhắn
+- **Admin-only Access**: Chỉ admin mới truy cập được
+- **Real-time Metrics**: Số liệu thời gian thực
 
 ### 🔔 Hệ thống Thông báo
 
 - **Email notifications**: Thông báo qua email
-- **Scheduled reminders**: Nhắc nhở lịch trình tự động
 - **Real-time updates**: Cập nhật trạng thái real-time
+- **Notification management**: Quản lý thông báo
 
 ## 🛠️ Công nghệ sử dụng
 
@@ -90,16 +87,17 @@ Vietnam Travel Assistant API là một hệ thống thông minh được phát t
 
 ### AI/ML
 
-- **OpenAI GPT-3.5-turbo**: Xử lý ngôn ngữ tự nhiên
+- **PhoBERT**: vinai/phobert-base-v2 - BERT model cho tiếng Việt
 - **ChromaDB**: Vector database cho semantic search
 - **Sentence-Transformers**: Embedding models
-- **LangDetect**: Nhận diện ngôn ngữ
+- **BM25**: Ranking algorithm cho hybrid search
+- **Transformers**: Hugging Face transformers library
 
 ### External Services
 
-- **Mapbox**: Bản đồ và geocoding
 - **Flask-Mail**: Gửi email
-- **SpeechRecognition**: Xử lý voice messages
+- **SpeechRecognition**: Xử lý voice-to-text
+- **gTTS**: Text-to-speech cho tiếng Việt
 
 ## 📦 Cài đặt
 
@@ -109,12 +107,13 @@ Vietnam Travel Assistant API là một hệ thống thông minh được phát t
 - PostgreSQL 13+
 - Git
 - pip (Python package manager)
+- 4GB RAM trở lên (cho PhoBERT model)
 
 ### Bước 1: Clone Repository
 
 ```bash
-
-cd ChatbotTravel_server
+git clone https://github.com/yourusername/ChatbotMedical_server.git
+cd ChatbotMedical_server
 ```
 
 ### Bước 2: Tạo môi trường ảo
@@ -142,12 +141,13 @@ pip install -r requirements.txt
    - Windows: Tải từ [postgresql.org](https://www.postgresql.org/download/windows/)
    - macOS: `brew install postgresql`
    - Ubuntu: `sudo apt-get install postgresql postgresql-contrib`
+
 2. **Tạo database**:
 
    ```sql
-   CREATE DATABASE vietnam_travel_assistant;
-   CREATE USER travel_user WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE vietnam_travel_assistant TO travel_user;
+   CREATE DATABASE medical1_db;
+   CREATE USER postgres WITH PASSWORD 'root';
+   GRANT ALL PRIVILEGES ON DATABASE medical1_db TO postgres;
    ```
 
 ### Bước 5: Cấu hình Environment Variables
@@ -156,43 +156,53 @@ Tạo file `.env` trong thư mục gốc:
 
 ```env
 # Database Configuration
-DATABASE_POSTGRESQL_URL=
-DB_HOST=
-DB_NAME=
-DB_USER=
-DB_PASSWORD=
-DB_PORT=
+DATABASE_POSTGRESQL_URL=postgresql://postgres:root@localhost:5432/medical1_db
+DB_HOST=localhost
+DB_NAME=medical1_db
+DB_USER=postgres
+DB_PASSWORD=root
+DB_PORT=5432
 
 # JWT Configuration
-SECRET_KEY=
+SECRET_KEY=your-secret-key-here
+
 # Email Configuration
 MAIL_SERVER=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USE_TLS=True
-MAIL_USERNAME=
-MAIL_PASSWORD=
-MAIL_DEFAULT_SENDER=
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_DEFAULT_SENDER=your-email@gmail.com
 
-# OpenAI Configuration
-OPENAI_API_KEY=
-
-# Mapbox Configuration
-MAPBOX_ACCESS_TOKEN=
 # Frontend URL
 FRONTEND_URL=http://localhost:3000
+
+# Cache Configuration
+CACHE_ENABLED=True
+CACHE_MAX_SIZE=1000
+CACHE_TTL_SEARCH=3600
+CACHE_TTL_RESPONSE=1800
 ```
 
 ### Bước 6: Chạy Database Migrations
 
 ```bash
-# Chạy migration cho notifications table
-python migrate_notifications.py
-
-# Hoặc chạy migration PostgreSQL (nếu cần)
-python migrate_to_postgresql.py
+# Thêm cột is_admin và tạo admin user
+python add_admin_column.py
 ```
 
-### Bước 7: Khởi chạy ứng dụng
+**Kết quả:**
+- Thêm cột `is_admin` vào bảng Users
+- Tạo admin user: `admin@medical.com` / `admin123`
+
+### Bước 7: Import Medical Data (Tùy chọn)
+
+```bash
+# Import dữ liệu y tế vào ChromaDB
+python src/nlp_model/import_medical_data.py
+```
+
+### Bước 8: Khởi chạy ứng dụng
 
 ```bash
 python main.py
@@ -200,7 +210,7 @@ python main.py
 
 Ứng dụng sẽ chạy tại `http://localhost:5000`
 
-### Bước 8: Kiểm tra API Documentation
+### Bước 9: Kiểm tra API Documentation
 
 Truy cập Swagger UI tại: `http://localhost:5000/docs`
 
@@ -221,25 +231,27 @@ http://localhost:5000/api
 - `POST /verify-otp` - Xác thực OTP
 - `POST /forgot-password` - Quên mật khẩu
 - `POST /reset-password` - Đặt lại mật khẩu
+- `PUT /update-name` - Cập nhật tên người dùng
 
-#### Travel Chatbot (`/api/travel-chatbot`)
+#### Medical Chatbot (`/api/medical-chatbot`)
 
-- `POST /search` - Tìm kiếm địa điểm với AI chatbot
-- `GET /metadata` - Lấy metadata địa điểm
+- `POST /chat` - Chat với AI chatbot y tế
+- `POST /search` - Tìm kiếm thông tin y tế
+- `GET /conversations` - Lấy danh sách cuộc hội thoại
+- `GET /conversations/<id>` - Lấy chi tiết cuộc hội thoại
+- `DELETE /conversations/<id>` - Xóa cuộc hội thoại
+- `GET /conversations/<id>/messages` - Lấy tin nhắn của cuộc hội thoại
 
-#### Chatting (`/api/chatting`)
+#### Speech (`/api/speech`)
 
-- `POST /conversations` - Tạo cuộc trò chuyện mới
-- `GET /conversations/list` - Lấy danh sách cuộc trò chuyện
-- `POST /messages` - Gửi tin nhắn
-- `GET /conversations/messages` - Lấy tin nhắn của cuộc trò chuyện
+- `POST /speech-to-text` - Chuyển giọng nói thành text
+- `POST /text-to-speech` - Chuyển text thành giọng nói
 
-#### Itinerary (`/api/itinerary`)
+#### Admin Statistics (`/api/admin`) 🔒 Admin Only
 
-- `POST /create` - Tạo lịch trình mới
-- `GET /list` - Lấy danh sách lịch trình
-- `PUT /update` - Cập nhật lịch trình
-- `DELETE /delete` - Xóa lịch trình
+- `GET /stats/users` - Thống kê người dùng
+- `GET /stats/conversations` - Thống kê hội thoại
+- `GET /stats/all` - Tất cả thống kê
 
 #### Notifications (`/api/notification`)
 
@@ -262,14 +274,23 @@ curl -X POST http://localhost:5000/api/auth/register \
   }'
 ```
 
-#### Tìm kiếm địa điểm với AI
+#### Chat với AI Chatbot Y tế
 
 ```bash
-curl -X POST http://localhost:5000/api/travel-chatbot/search \
+curl -X POST http://localhost:5000/api/medical-chatbot/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_token>" \
   -d '{
-    "question": "Nhà hàng ngon ở quận 1"
+    "conversation_id": 1,
+    "message": "Triệu chứng của bệnh tiểu đường là gì?"
   }'
+```
+
+#### Lấy thống kê admin (Admin only)
+
+```bash
+curl -X GET http://localhost:5000/api/admin/stats/all \
+  -H "Authorization: Bearer <admin_token>"
 ```
 
 ## 🧪 Testing
@@ -306,55 +327,89 @@ python test_db_connection.py
    export FLASK_ENV=production
    export FLASK_DEBUG=0
    ```
+
 2. **Sử dụng Gunicorn**:
 
    ```bash
    pip install gunicorn
    gunicorn -w 4 -b 0.0.0.0:5000 main:app
    ```
+
 3. **Docker Deployment** (tùy chọn):
 
    ```bash
-   docker build -t vietnam-travel-api .
-   docker run -p 5000:5000 vietnam-travel-api
+   docker build -t medical-chatbot-api .
+   docker run -p 5000:5000 medical-chatbot-api
    ```
 
 ## 📁 Cấu trúc dự án
 
 ```
-ChatbotTravel_server/
+ChatbotMedical_server/
 ├── src/
 │   ├── controllers/          # API endpoints
 │   │   ├── auth_controller.py
-│   │   ├── chatting_controller.py
-│   │   ├── travel_chatbot_controller.py
-│   │   ├── itinerary_controller.py
-│   │   ├── notification_controller.py
-│   │   └── map_controller.py
+│   │   ├── medical_chatbot_controller.py
+│   │   ├── speech_controller.py
+│   │   ├── admin_controller.py
+│   │   └── notification_controller.py
 │   ├── models/              # Database models
 │   │   ├── user.py
-│   │   ├── attraction.py
 │   │   ├── conversation.py
 │   │   ├── message.py
-│   │   ├── itinerary.py
-│   │   └── notification.py
+│   │   ├── notification.py
+│   │   └── otp.py
 │   ├── services/            # Business logic
 │   │   ├── auth_service.py
-│   │   ├── travel_chatbot_service.py
-│   │   ├── chatting_service.py
-│   │   ├── itinerary_service.py
+│   │   ├── medical_chatbot_service.py
+│   │   ├── bm25_search.py
+│   │   ├── cached_chatbot_service.py
+│   │   ├── admin_service.py
 │   │   └── notification_service.py
+│   ├── utils/               # Utilities
+│   │   └── auth_middleware.py
 │   ├── config/              # Configuration
 │   │   └── config.py
 │   └── nlp_model/           # AI/ML components
 │       ├── data/
-│       ├── process_diadiem.py
-│       └── read_chroma.py
-├── migrations/              # Database migrations
-├── uploads/                 # File uploads
+│       ├── phobert_model/
+│       └── chroma_db/
+├── add_admin_column.py      # Migration script
 ├── main.py                  # Application entry point
 ├── requirements.txt         # Python dependencies
 └── README.md               # Project documentation
+```
+
+## 🔐 Admin Access
+
+### Default Admin Account
+
+```
+Email: admin@medical.com
+Password: admin123
+```
+
+⚠️ **Quan trọng**: Hãy đổi password sau khi đăng nhập lần đầu!
+
+### Tạo Admin mới
+
+**Option 1: Qua Database**
+```sql
+UPDATE "Users" SET is_admin = TRUE WHERE email = 'user@example.com';
+```
+
+**Option 2: Qua Python Script**
+```python
+from src import create_app
+from src.models.user import User
+from src.models.base import db
+
+app = create_app()
+with app.app_context():
+    user = User.query.filter_by(email='user@example.com').first()
+    if user:
+        user.is_admin = True
+        db.session.commit()
 ```
 
 ## 🤝 Đóng góp
@@ -384,21 +439,23 @@ Dự án này được cấp phép theo [MIT License](LICENSE.md).
 
 ## 👥 Tác giả
 
-**Sinh viên thực hiện**: [Nguyễn Văn Long]
-**Giảng viên hướng dẫn**: [Nguyễn Thiện Dương]
-**Trường**: [Đại học Giao Thông Vận Tải ]
-**Khoa**: [Khoa CNTT]
+**Sinh viên thực hiện**: Nguyễn Văn Long  
+**Giảng viên hướng dẫn**: Nguyễn Thiện Dương  
+**Trường**: Đại học Giao Thông Vận Tải  
+**Khoa**: Khoa CNTT  
 **Năm**: 2025
 
 ## 📞 Liên hệ
 
-- 0398481719 - long0398481719@gmail.com
+- 📱 0398481719
+- 📧 long0398481719@gmail.com
 
 ## 🙏 Lời cảm ơn
 
-- OpenAI cho việc cung cấp API GPT
+- VinAI Research cho PhoBERT model
 - ChromaDB team cho vector database
 - Flask community cho web framework
+- Hugging Face cho transformers library
 - Tất cả contributors đã đóng góp cho dự án
 
 ---

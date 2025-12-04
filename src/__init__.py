@@ -60,11 +60,13 @@ def create_app():
     from src.controllers.medical_chatbot_controller import medical_chatbot_ns
     from src.controllers.notification_controller import notification_ns
     from src.controllers.speech_controller import speech_ns  # Speech-to-Text API
+    from src.controllers.admin_controller import admin_ns  # Admin statistics API
     
     api.add_namespace(auth_ns, path='/api/auth')
     api.add_namespace(medical_chatbot_ns, path='/api/medical-chatbot')
     api.add_namespace(notification_ns, path='/api/notification')
     api.add_namespace(speech_ns, path='/api/speech')  # Speech-to-Text endpoints
+    api.add_namespace(admin_ns, path='/api/admin')  # Admin statistics endpoints
     
     with app.app_context():
         db.create_all()

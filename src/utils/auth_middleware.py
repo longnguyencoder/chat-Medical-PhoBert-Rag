@@ -94,7 +94,8 @@ def token_required(f):
                 'user_id': current_user.user_id,
                 'email': current_user.email,
                 'full_name': current_user.full_name,
-                'is_verified': current_user.is_verified
+                'is_verified': current_user.is_verified,
+                'is_admin': current_user.is_admin
             }
             
         except jwt.ExpiredSignatureError:
@@ -159,5 +160,100 @@ def optional_token(f):
         
         # Gọi function với current_user (có thể là None)
         return f(*args, current_user=current_user_data, **kwargs)
+    
+    return decorated
+
+
+def admin_required(f):
+    """
+    Decorator để bảo vệ API endpoint chỉ dành cho Admin.
+    
+    Cách sử dụng:
+    -------------
+    @admin_ns.route('/stats/users')
+    class UserStats(Resource):
+        @admin_required
+        def get(self, current_user):
+            # Chỉ admin mới truy cập được
+            return get_total_users()
+    
+    Luồng hoạt động:
+    ----------------
+    1. Kiểm tra token (giống token_required)
+    2. Kiểm tra user có is_admin=True không
+    3. Nếu không phải admin → Trả về 403 Forbidden
+    
+    Args:
+        f: Function cần bảo vệ
+        
+    Returns:
+        Decorated function với tham số current_user (chỉ admin)
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        
+        # Bước 1: Lấy token từ HTTP Header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(" ")[1]
+            except IndexError:
+                return {
+                    'message': 'Token format không hợp lệ. Phải là: Bearer <token>'
+                }, 401
+        
+        # Nếu không có token -> Từ chối truy cập
+        if not token:
+            return {
+                'message': 'Token bị thiếu. Vui lòng đăng nhập để lấy token.'
+            }, 401
+        
+        try:
+            # Bước 2: Decode token
+            data = jwt.decode(
+                token, 
+                Config.SECRET_KEY, 
+                algorithms=["HS256"]
+            )
+            
+            # Bước 3: Lấy thông tin user từ database
+            current_user = User.query.get(data['user_id'])
+            
+            if not current_user:
+                return {
+                    'message': 'User không tồn tại'
+                }, 401
+            
+            # Bước 4: Kiểm tra quyền admin
+            if not current_user.is_admin:
+                return {
+                    'message': 'Bạn không có quyền truy cập. Chỉ admin mới được phép.',
+                    'required_role': 'admin',
+                    'your_role': 'user'
+                }, 403  # 403 Forbidden
+            
+            # Chuyển User object thành dictionary
+            current_user_data = {
+                'user_id': current_user.user_id,
+                'email': current_user.email,
+                'full_name': current_user.full_name,
+                'is_verified': current_user.is_verified,
+                'is_admin': current_user.is_admin
+            }
+            
+        except jwt.ExpiredSignatureError:
+            return {
+                'message': 'Token đã hết hạn. Vui lòng đăng nhập lại.'
+            }, 401
+            
+        except jwt.InvalidTokenError:
+            return {
+                'message': 'Token không hợp lệ.'
+            }, 401
+        
+        # Bước 5: Gọi function gốc và truyền current_user vào
+        kwargs['current_user'] = current_user_data
+        return f(*args, **kwargs)
     
     return decorated

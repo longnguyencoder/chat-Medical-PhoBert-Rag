@@ -13,10 +13,10 @@ class Config:
     # ========================================================================
     
     # OPTION 1: SQLite (Development) - Uncomment dòng này để dùng SQLite
-    SQLALCHEMY_DATABASE_URI = f'sqlite:///{SQLITE_DB_PATH}'
+    # SQLALCHEMY_DATABASE_URI = f'sqlite:///{SQLITE_DB_PATH}'
     
     # OPTION 2: PostgreSQL (Production) - Uncomment dòng này để dùng PostgreSQL
-    # SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL')
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_POSTGRESQL_URL')
     
     # ========================================================================
     
