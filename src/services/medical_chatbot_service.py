@@ -118,6 +118,54 @@ Câu 2: Sốt trên bao nhiêu độ C là nguy hiểm?
         logger.warning(f"Query expansion failed: {e}. Using original query only.")
         return [question]
 
+def rewrite_query_with_context(question: str, conversation_id: int) -> str:
+    """
+    Rewrite user question to be self-contained based on conversation history.
+    Example: "Nó có nguy hiểm không?" -> "Bệnh sốt xuất huyết có nguy hiểm không?"
+    """
+    try:
+        from src.models.message import Message
+        
+        # Get last 2 messages (user + bot pair)
+        recent_messages = Message.query.filter_by(
+            conversation_id=conversation_id
+        ).order_by(Message.sent_at.desc()).limit(2).all()
+        
+        if not recent_messages:
+            return question
+            
+        recent_messages.reverse()
+        history_text = "\n".join([f"{'User' if m.sender=='user' else 'Bot'}: {m.message_text}" for m in recent_messages])
+        
+        prompt = f"""Hãy viết lại câu hỏi cuối cùng của User để nó ĐẦY ĐỦ Ý NGHĨA, dựa vào ngữ cảnh trước đó.
+
+Lịch sử:
+{history_text}
+
+Câu hỏi hiện tại: "{question}"
+
+Yêu cầu:
+- Nếu câu hỏi đã rõ ràng, giữ nguyên.
+- Nếu câu hỏi thiếu chủ ngữ/ngữ cảnh (ví dụ: "Nó là gì?", "Uống thuốc gì?"), hãy thêm tên bệnh/vấn đề từ lịch sử vào.
+- CHỈ trả về câu hỏi đã viết lại (hoặc câu gốc). KHÔNG giải thích.
+
+Câu hỏi viết lại:"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3, # Low temp for precision
+            max_tokens=100
+        )
+        
+        rewritten = response.choices[0].message.content.strip()
+        logger.info(f"🔄 Rewrote query: '{question}' -> '{rewritten}'")
+        return rewritten
+        
+    except Exception as e:
+        logger.warning(f"Query rewrite failed: {e}")
+        return question
+
 def rerank_results(question: str, results: List[Dict]) -> List[Dict]:
     """
     Rerank search results using Cross-Encoder for better accuracy.
@@ -642,6 +690,44 @@ def generate_natural_response(
                     logger.info(f"✓ Loaded {len(recent_messages)} recent messages for context")
             except Exception as e:
                 logger.warning(f"Could not load conversation context: {e}")
+        
+        # === HEALTH PROFILE CONTEXT (NEW!) ===
+        # Lấy hồ sơ sức khỏe của user để cá nhân hóa câu trả lời
+        health_profile_context = ""
+        if user_name:  # Nếu có user_name thì có thể lấy được user_id
+            try:
+                from src.models.user import User
+                from src.services.health_profile_service import health_profile_service
+                
+                # Tìm user_id từ user_name (hoặc có thể truyền trực tiếp user_id vào hàm này)
+                # Tạm thời skip vì cần refactor để truyền user_id vào
+                # TODO: Refactor để truyền user_id vào generate_natural_response
+                pass
+            except Exception as e:
+                logger.warning(f"Could not load health profile: {e}")
+        
+        # WORKAROUND: Lấy user_id từ conversation
+        if conversation_id and not health_profile_context:
+            try:
+                from src.models.conversation import Conversation
+                from src.services.health_profile_service import health_profile_service
+                
+                conversation = Conversation.query.get(conversation_id)
+                if conversation:
+                    user_id = conversation.user_id
+                    profile_text = health_profile_service.format_profile_for_chatbot(user_id)
+                    if profile_text:
+                        health_profile_context = f"""
+【HỒ SƠ SỨC KHỎE CÁ NHÂN】
+{profile_text}
+
+⚠️ QUAN TRỌNG: Hãy tham khảo hồ sơ này khi tư vấn. 
+- Nếu user DỊ ỨNG với thuốc/thực phẩm nào → TUYỆT ĐỐI KHÔNG đề xuất
+- Nếu có bệnh mãn tính → Lưu ý tương tác thuốc và chế độ ăn
+"""
+                        logger.info(f"✓ Loaded health profile for user {user_id}")
+            except Exception as e:
+                logger.warning(f"Could not load health profile from conversation: {e}")
         if not search_results:
             return {
                 "answer": """Xin lỗi, tôi không tìm thấy thông tin phù hợp trong cơ sở dữ liệu y tế để trả lời câu hỏi của bạn.
@@ -695,6 +781,8 @@ QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):
 4. ❌ TUYỆT ĐỐI KHÔNG tự suy luận hoặc thêm thông tin không có trong nguồn
 5. ❌ KHÔNG chẩn đoán chắc chắn (dùng "có thể", "khả năng")
 6. ❌ KHÔNG kê đơn thuốc cụ thể
+
+{health_profile_context if health_profile_context else ""}
 
 CÁCH TRẢ LỜI:
 {greeting_instruction}

@@ -6,7 +6,8 @@ from src.services.medical_chatbot_service import (
     extract_user_intent_and_features,
     combined_search_with_filters,
     generate_natural_response,
-    get_or_create_collection
+    get_or_create_collection,
+    rewrite_query_with_context  # Import hàm rewrite
 )
 from src.models.base import db
 from src.models.message import Message
@@ -114,24 +115,30 @@ class SecureMedicalChat(Resource):
             )
             db.session.add(user_msg)
             db.session.commit()
-            
             # RAG pipeline with CACHING
-            extraction_result = extract_user_intent_and_features(question)
+            
+            # 1. Rewrite Query if history exists
+            search_query = question
+            if conversation_id:
+                 search_query = rewrite_query_with_context(question, conversation.conversation_id)
+            
+            # 2. Extract Intent from REWRITTEN query
+            extraction_result = extract_user_intent_and_features(search_query)  # Use search_query
             extracted_features = extraction_result.get('extracted_features', {})
             
-            # CACHED Search
+            # 3. Search with REWRITTEN query
             search_result = cached_search(
                 combined_search_with_filters,
-                question,
+                search_query,  # Use search_query
                 extracted_features
             )
             search_results = search_result.get('results', [])
             search_from_cache = search_result.get('from_cache', False)
             
-            # CACHED Response (automatically skips cache for conversation-specific queries)
+            # CACHED Response (Use ORIGINAL question for natural response generation, but with better search results)
             response = cached_response(
                 generate_natural_response,
-                question,
+                question,  # Keep original question for response prompt
                 search_results,
                 extracted_features,
                 conversation_id=conversation.conversation_id,

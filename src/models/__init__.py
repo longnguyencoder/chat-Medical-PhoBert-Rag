@@ -5,6 +5,7 @@ from .conversation import Conversation
 from .otp import OTP
 from .itinerary import Itinerary
 from .itinerary_item import ItineraryItem
+from .health_profile import HealthProfile  # ← Thêm model mới
 
 __all__ = [
     'User',
@@ -13,5 +14,6 @@ __all__ = [
     'Conversation',
     'OTP',
     'Itinerary',
-    'ItineraryItem'
+    'ItineraryItem',
+    'HealthProfile'  # ← Export model mới
 ] 
