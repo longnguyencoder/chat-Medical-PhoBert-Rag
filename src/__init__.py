@@ -19,7 +19,19 @@ mail = Mail()
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    
+    # Configure CORS for local development
+    # Allows client and backend on same machine to communicate
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",  # Allow all origins for development
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "expose_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True,
+            "max_age": 3600
+        }
+    })
     
     # Load configuration
     app.config.from_object(Config)
