@@ -99,6 +99,11 @@ class SecureMedicalChat(Resource):
                 db.session.add(conversation)
                 db.session.commit()
             
+            # Update title if it's the default one logic
+            elif conversation.title == 'New Conversation':
+                 conversation.title = question[:50] + "..."
+                 db.session.commit()
+            
             # Lưu tin nhắn user
             user_msg = Message(
                 conversation_id=conversation.conversation_id,
