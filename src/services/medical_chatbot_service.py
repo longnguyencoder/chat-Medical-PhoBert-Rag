@@ -27,6 +27,8 @@ sys.path.append(src_dir)
 
 from src.nlp_model.phobert_embedding import PhoBERTEmbeddingFunction
 from src.services.bm25_search import BM25SearchEngine, create_searchable_text
+from src.services.hospital_finder_service import hospital_finder_service  # Hospital Finder
+from src.services.tool_calling_functions import AVAILABLE_TOOLS, execute_tool_call  # Tool Calling
 
 # Import Cross-Encoder for reranking
 try:
@@ -833,17 +835,63 @@ Hãy trả lời theo đúng quy tắc.""")
         
         user_prompt = "\n\n".join(user_prompt_parts)
         
+        # === TOOL CALLING: Cho phép GPT gọi functions ===
+        # GPT sẽ TỰ QUYẾT ĐỊNH khi nào cần gọi tool (ví dụ: tìm bệnh viện)
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        # Gọi GPT lần đầu (có thể trigger tool call)
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.3,  # Lower temperature for more consistent, source-based answers
+            model="gpt-4o",  # gpt-4o hỗ trợ tool calling tốt hơn gpt-4o-mini
+            messages=messages,
+            tools=AVAILABLE_TOOLS,  # Danh sách tools GPT có thể gọi
+            tool_choice="auto",  # GPT tự quyết định khi nào gọi tool
+            temperature=0.3,
             max_tokens=800
         )
         
-        answer = response.choices[0].message.content
+        response_message = response.choices[0].message
+        tool_calls = response_message.tool_calls
+        
+        # Kiểm tra xem GPT có gọi tool không
+        if tool_calls:
+            logger.info(f"🔧 GPT triggered {len(tool_calls)} tool call(s)")
+            
+            # Thêm response của GPT vào messages
+            messages.append(response_message)
+            
+            # Thực thi từng tool call
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                logger.info(f"Executing tool: {function_name}")
+                
+                # Gọi function và lấy kết quả
+                function_response = execute_tool_call(tool_call)
+                
+                # Thêm kết quả vào messages
+                messages.append({
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": function_response
+                })
+            
+            # Gọi GPT lần 2 để tổng hợp kết quả từ tool
+            second_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                temperature=0.3,
+                max_tokens=800
+            )
+            
+            answer = second_response.choices[0].message.content
+            logger.info("✓ Tool calling completed, final answer generated")
+        else:
+            # Không có tool call, lấy answer trực tiếp
+            answer = response_message.content
         
         # Add safety disclaimer if needed
         if "bác sĩ" not in answer.lower() and "khám" not in answer.lower():
