@@ -14,7 +14,9 @@ from src.models.otp import OTP
 from src.models.itinerary import Itinerary
 from src.models.itinerary_item import ItineraryItem
 from src.models.notification import Notification
-from src.models.health_profile import HealthProfile  # ← Health Profile model
+from src.models.health_profile import HealthProfile
+from src.models.medication_schedule import MedicationSchedule
+from src.models.medication_log import MedicationLog
 
 mail = Mail()
 
@@ -75,6 +77,7 @@ def create_app():
     from src.controllers.speech_controller import speech_ns  # Speech-to-Text API
     from src.controllers.admin_controller import admin_ns  # Admin statistics API
     from src.controllers.health_profile_controller import health_profile_ns  # Health Profile API
+    from src.controllers.medication_controller import medication_ns  # Medication Reminder API
     
     api.add_namespace(auth_ns, path='/api/auth')
     api.add_namespace(medical_chatbot_ns, path='/api/medical-chatbot')
@@ -82,6 +85,7 @@ def create_app():
     api.add_namespace(speech_ns, path='/api/speech')  # Speech-to-Text endpoints
     api.add_namespace(admin_ns, path='/api/admin')  # Admin statistics endpoints
     api.add_namespace(health_profile_ns, path='/api/health-profile')  # Health Profile endpoints
+    api.add_namespace(medication_ns, path='/api/medication')  # Medication Reminder endpoints
     
     with app.app_context():
         db.create_all()
@@ -92,5 +96,12 @@ def create_app():
             initialize_bm25_index()
         except Exception as e:
             print(f"Warning: Failed to initialize BM25 index: {e}")
+        
+        # Initialize medication reminder scheduler
+        try:
+            from src.services.scheduler_service import init_scheduler
+            init_scheduler(app)
+        except Exception as e:
+            print(f"Warning: Failed to initialize scheduler: {e}")
     
     return app

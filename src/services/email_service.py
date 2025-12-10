@@ -78,3 +78,87 @@ def send_notification_email(email, title, message, user_name):
     except Exception as e:
         print(f"Error sending notification email to {email}: {e}")
         return False
+
+def send_medication_reminder_email(email, user_name, medication_name, dosage, scheduled_time):
+    """
+    Send medication reminder email to user
+    
+    Args:
+        email (str): User's email address
+        user_name (str): User's name
+        medication_name (str): Name of medication
+        dosage (str): Dosage information
+        scheduled_time (str): Scheduled time (HH:MM format)
+        
+    Returns:
+        bool: True if sent successfully, False otherwise
+    """
+    try:
+        title = "💊 Nhắc nhở Uống thuốc"
+        msg = Message(title,
+                     sender=Config.MAIL_DEFAULT_SENDER,
+                     recipients=[email])
+        
+        # HTML template cho medication reminder email
+        msg.html = f'''
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 40px 30px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+            <div style="background: white; border-radius: 8px; padding: 30px; color: #333;">
+                <h1 style="color: #667eea; text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 600;">💊 Nhắc nhở Uống thuốc</h1>
+                
+                <div style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+                    <p style="font-size: 18px; margin: 10px 0;"><strong>Xin chào {user_name},</strong></p>
+                    <p style="font-size: 16px; margin: 10px 0;">Đây là lời nhắc uống thuốc của bạn:</p>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border: 2px solid #667eea;">
+                        <p style="font-size: 20px; margin: 5px 0; color: #667eea;"><strong>📋 {medication_name}</strong></p>
+                        <p style="font-size: 16px; margin: 5px 0; color: #666;">💊 Liều lượng: <strong>{dosage}</strong></p>
+                        <p style="font-size: 16px; margin: 5px 0; color: #666;">⏰ Thời gian: <strong>{scheduled_time}</strong></p>
+                    </div>
+                    
+                    <p style="font-size: 14px; margin: 15px 0; color: #666;">
+                        ⚠️ Vui lòng uống thuốc đúng giờ để đảm bảo hiệu quả điều trị tốt nhất.
+                    </p>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <div style="display: inline-block; background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px 30px; border-radius: 25px; font-weight: 600; font-size: 16px;">
+                        🌟 Chúc bạn sức khỏe! 🌟
+                    </div>
+                </div>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 2px solid #e0e0e0;">
+                
+                <div style="text-align: center; color: #666; font-size: 14px;">
+                    <p style="margin: 5px 0;">Đây là email nhắc nhở tự động từ</p>
+                    <p style="margin: 5px 0; font-weight: 600; color: #667eea;">Medical Chatbot</p>
+                    <p style="margin: 5px 0; font-size: 12px;">Trợ lý sức khỏe thông minh của bạn</p>
+                </div>
+            </div>
+        </div>
+        '''
+        
+        msg.body = f"""
+Nhắc nhở Uống thuốc
+
+Xin chào {user_name},
+
+Đây là lời nhắc uống thuốc của bạn:
+
+Thuốc: {medication_name}
+Liều lượng: {dosage}
+Thời gian: {scheduled_time}
+
+Vui lòng uống thuốc đúng giờ để đảm bảo hiệu quả điều trị tốt nhất.
+
+Chúc bạn sức khỏe!
+
+---
+Medical Chatbot - Trợ lý sức khỏe thông minh của bạn
+        """
+        
+        mail.send(msg)
+        return True
+        
+    except Exception as e:
+        print(f"Error sending medication reminder email to {email}: {e}")
+        return False

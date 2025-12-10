@@ -1,11 +1,15 @@
-from .user import User
-from .attraction import Attraction
-from .message import Message
-from .conversation import Conversation
-from .otp import OTP
-from .itinerary import Itinerary
-from .itinerary_item import ItineraryItem
-from .health_profile import HealthProfile  # ← Thêm model mới
+from src.models.base import db
+from src.models.user import User
+from src.models.attraction import Attraction
+from src.models.message import Message
+from src.models.conversation import Conversation
+from src.models.otp import OTP
+from src.models.itinerary import Itinerary
+from src.models.itinerary_item import ItineraryItem
+from src.models.notification import Notification
+from src.models.health_profile import HealthProfile
+from src.models.medication_schedule import MedicationSchedule
+from src.models.medication_log import MedicationLog  # ← Thêm model mới
 
 __all__ = [
     'User',
@@ -15,5 +19,8 @@ __all__ = [
     'OTP',
     'Itinerary',
     'ItineraryItem',
-    'HealthProfile'  # ← Export model mới
+    'Notification',
+    'HealthProfile',
+    'MedicationSchedule',
+    'MedicationLog'
 ] 
