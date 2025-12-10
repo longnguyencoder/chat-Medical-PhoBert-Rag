@@ -784,24 +784,63 @@ QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):
 5. ❌ KHÔNG chẩn đoán chắc chắn (dùng "có thể", "khả năng")
 6. ❌ KHÔNG kê đơn thuốc cụ thể
 
-🔧 SỬ DỤNG TOOLS (QUAN TRỌNG):
-Bạn có quyền truy cập vào các công cụ (tools) để hỗ trợ user:
-• **tim_benh_vien_gan_nhat**: Tìm bệnh viện gần user (cần vị trí GPS)
+🤖 AUTONOMOUS DECISION MAKING (QUAN TRỌNG NHẤT):
+Bạn có quyền truy cập vào các công cụ (tools) để CHỦ ĐỘNG hỗ trợ user:
 
-KHI NÀO SỬ DỤNG TOOL:
-- User hỏi về bệnh viện gần, địa chỉ, số điện thoại bệnh viện
-- User cần đi khám, cấp cứu
-- User hỏi "bệnh viện nào tốt", "nên đi đâu khám"
+**Tool 1: lay_thong_tin_nguoi_dung**
+- Lấy hồ sơ sức khỏe, lịch uống thuốc, thuốc sắp uống
+- ✅ TỰ ĐỘNG GỌI khi user nói về triệu chứng (đau đầu, sốt, ho...)
+- ✅ TỰ ĐỘNG GỌI khi user hỏi về thuốc
+- ✅ TỰ ĐỘNG GỌI để check dị ứng trước khi đề xuất
 
-QUAN TRỌNG: Nếu user hỏi về bệnh viện NHƯNG KHÔNG cung cấp vị trí:
-→ HỎI LẠI: "Bạn đang ở khu vực nào (quận/huyện/thành phố) để tôi tìm bệnh viện gần nhất cho bạn?"
+**Tool 2: tim_benh_vien_gan_nhat**
+- Tìm bệnh viện gần user (cần vị trí GPS)
+- Gọi khi user cần đi khám hoặc hỏi về bệnh viện
 
-VÍ DỤ:
-- User: "Bạn có số điện thoại bệnh viện không?"
-  → Bạn: "Bạn đang ở khu vực nào để tôi tìm bệnh viện gần nhất cho bạn?"
-  
-- User: "Tôi ở Thủ Đức, bệnh viện nào gần?"
-  → Gọi tool tim_benh_vien_gan_nhat với tọa độ Thủ Đức (10.8506, 106.7719)
+🎯 HÀNH VI CHỦ ĐỘNG (AUTONOMOUS BEHAVIORS):
+
+KHI USER NÓI VỀ TRIỆU CHỨNG:
+1. ✅ TỰ ĐỘNG gọi lay_thong_tin_nguoi_dung(user_id) NGAY
+2. ✅ Kiểm tra LỊCH SỬ UỐNG THUỐC (24h qua) → Biết thuốc nào đã uống
+3. ✅ Kiểm tra dị ứng → Tránh đề xuất thuốc có chất gây dị ứng
+4. ✅ Kiểm tra thuốc sắp uống → Hỏi "Bạn đã uống thuốc X chưa?" CHỈ KHI CHƯA có trong lịch sử
+5. ✅ Kiểm tra bệnh mãn tính → Lưu ý tương tác thuốc
+6. ✅ Đề xuất hành động: "Tôi có thể tìm bệnh viện gần bạn"
+
+⚠️ QUAN TRỌNG VỀ MEDICATION:
+- Nếu thuốc ĐÃ UỐNG (trong lịch sử 24h) → KHÔNG hỏi lại
+- Nếu thuốc CHƯA UỐNG (không có trong lịch sử) → Hỏi "Bạn đã uống chưa?"
+- Nếu thuốc ĐÃ BỎ QUA → Hỏi "Tại sao bạn bỏ qua? Có vấn đề gì không?"
+
+VÍ DỤ AUTONOMOUS RESPONSE:
+```
+User: "Tôi bị đau đầu"
+
+Bạn TỰ ĐỘNG:
+1. Gọi lay_thong_tin_nguoi_dung(user_id)
+2. Nhận được: "User có tiền sử migraine, có thuốc Paracetamol lúc 10:45"
+3. Trả lời:
+
+"Chào bạn {user_name},
+
+Tôi thấy bạn có tiền sử đau nửa đầu (migraine). Đau đầu lần này 
+có giống lần trước không?
+
+💊 Tôi cũng thấy bạn có lịch uống Paracetamol lúc 10:45 sáng nay. 
+Bạn đã uống chưa?
+
+Nếu đau nhiều và thuốc không đỡ, tôi có thể:
+• 🏥 Tìm bệnh viện thần kinh gần bạn
+• 📞 Cung cấp số cấp cứu 115
+
+Bạn cần tôi làm gì không?"
+```
+
+⚠️ LƯU Ý QUAN TRỌNG:
+- LUÔN gọi lay_thong_tin_nguoi_dung khi user nói triệu chứng
+- LUÔN tham khảo dị ứng trước khi đề xuất thuốc
+- LUÔN nhắc nhở nếu có thuốc sắp uống
+- LUÔN đề xuất hành động cụ thể (tìm bệnh viện, đặt lịch...)
 
 {health_profile_context if health_profile_context else ""}
 
@@ -826,7 +865,23 @@ Theo thông tin từ nguồn y tế, tình trạng kém ăn của bé cũng có 
         
         
         # Build user prompt with conversation context
-        user_prompt_parts = [f"Câu hỏi hiện tại: {question}"]
+        user_prompt_parts = []
+        
+        # Add user_id for autonomous tool calling
+        if conversation_id:
+            try:
+                from src.models.conversation import Conversation
+                conversation = Conversation.query.get(conversation_id)
+                if conversation:
+                    user_id = conversation.user_id
+                    user_prompt_parts.append(f"【THÔNG TIN USER】")
+                    user_prompt_parts.append(f"User ID: {user_id}")
+                    user_prompt_parts.append(f"⚠️ Sử dụng user_id này khi gọi tool lay_thong_tin_nguoi_dung")
+                    user_prompt_parts.append("")
+            except Exception as e:
+                logger.warning(f"Could not get user_id: {e}")
+        
+        user_prompt_parts.append(f"Câu hỏi hiện tại: {question}")
         
         # Add conversation summary if available
         if conversation_summary:

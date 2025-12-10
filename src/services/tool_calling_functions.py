@@ -64,6 +64,43 @@ VÍ DỤ:
                 "required": ["vi_do", "kinh_do"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "lay_thong_tin_nguoi_dung",
+            "description": """Lấy thông tin chi tiết về người dùng để tư vấn cá nhân hóa.
+
+SỬ DỤNG TOOL NÀY KHI:
+- User nói về triệu chứng bệnh (đau đầu, sốt, ho...)
+- User hỏi về thuốc nên dùng
+- Cần kiểm tra dị ứng trước khi đề xuất thuốc
+- Cần xem lịch uống thuốc của user
+- Muốn cá nhân hóa câu trả lời dựa trên tiền sử bệnh
+
+TOOL NÀY TRẢ VỀ:
+- Hồ sơ sức khỏe (dị ứng, bệnh mãn tính, tiền sử)
+- Lịch uống thuốc hiện tại
+- Thuốc sắp uống trong 24h tới
+- Tỷ lệ tuân thủ uống thuốc
+
+QUAN TRỌNG: Hãy TỰ ĐỘNG gọi tool này khi user đề cập đến vấn đề sức khỏe để đưa ra tư vấn an toàn và cá nhân hóa.
+
+VÍ DỤ:
+- User: "Tôi bị đau đầu" → GỌI TOOL để check tiền sử, thuốc đang dùng
+- User: "Nên uống thuốc gì?" → GỌI TOOL để check dị ứng
+- User: "Tôi quên uống thuốc" → GỌI TOOL để xem lịch uống thuốc""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_id": {
+                        "type": "integer",
+                        "description": "ID của người dùng cần lấy thông tin"
+                    }
+                },
+                "required": ["user_id"]
+            }
+        }
     }
 ]
 
@@ -121,9 +158,158 @@ def tim_benh_vien_gan_nhat(
         return f"Đã xảy ra lỗi khi tìm bệnh viện: {str(e)}"
 
 
+def lay_thong_tin_nguoi_dung(user_id: int) -> str:
+    """
+    Lấy thông tin toàn diện về người dùng để tư vấn cá nhân hóa.
+    
+    Args:
+        user_id: ID người dùng
+        
+    Returns:
+        String formatted chứa thông tin user (cho GPT)
+    """
+    logger.info(f"👤 Tool called: lay_thong_tin_nguoi_dung(user_id={user_id})")
+    
+    try:
+        from src.services.health_profile_service import health_profile_service
+        from src.services.medication_service import (
+            get_schedules_by_user,
+            get_upcoming_medications,
+            get_compliance_stats
+        )
+        
+        result_parts = []
+        
+        # === 1. HEALTH PROFILE ===
+        try:
+            profile = health_profile_service.get_profile(user_id)
+            if profile:
+                result_parts.append("【HỒ SƠ SỨC KHỎE】")
+                result_parts.append(f"📅 Ngày sinh: {profile.date_of_birth or 'Chưa cập nhật'}")
+                result_parts.append(f"⚧ Giới tính: {profile.gender or 'Chưa cập nhật'}")
+                
+                if profile.allergies:
+                    result_parts.append(f"⚠️ DỊ ỨNG: {profile.allergies}")
+                    result_parts.append("   → TUYỆT ĐỐI KHÔNG đề xuất thuốc/thực phẩm có chất này!")
+                
+                if profile.chronic_diseases:
+                    result_parts.append(f"🏥 Bệnh mãn tính: {profile.chronic_diseases}")
+                
+                if profile.current_medications:
+                    result_parts.append(f"💊 Thuốc đang dùng: {profile.current_medications}")
+                
+                result_parts.append("")
+            else:
+                result_parts.append("【HỒ SƠ SỨC KHỎE】")
+                result_parts.append("Chưa có thông tin hồ sơ sức khỏe.")
+                result_parts.append("")
+        except Exception as e:
+            logger.warning(f"Could not fetch health profile: {e}")
+        
+        # === 2. MEDICATION SCHEDULE ===
+        try:
+            schedules = get_schedules_by_user(user_id)
+            if schedules:
+                result_parts.append("【LỊCH UỐNG THUỐC】")
+                for schedule in schedules[:3]:  # Top 3
+                    times = ', '.join(schedule.get_time_of_day_list())
+                    result_parts.append(
+                        f"💊 {schedule.medication_name} ({schedule.dosage or 'N/A'}) "
+                        f"- {times}"
+                    )
+                result_parts.append("")
+        except Exception as e:
+            logger.warning(f"Could not fetch medication schedules: {e}")
+        
+        # === 3. RECENT MEDICATION LOGS (24h) ===
+        try:
+            from src.services.medication_service import get_logs_by_user
+            from datetime import datetime, timedelta
+            import pytz
+            
+            # Get logs from last 24 hours
+            now = datetime.now(pytz.timezone('Asia/Ho_Chi_Minh'))
+            start_date = (now - timedelta(hours=24)).strftime('%Y-%m-%d')
+            
+            recent_logs = get_logs_by_user(user_id, start_date=start_date)
+            
+            if recent_logs:
+                result_parts.append("【LỊCH SỬ UỐNG THUỐC (24H QUA)】")
+                for log in recent_logs[:5]:  # Top 5 recent
+                    status_icon = "✅" if log.status == "taken" else "⏭️" if log.status == "skipped" else "⏳"
+                    status_text = "Đã uống" if log.status == "taken" else "Đã bỏ qua" if log.status == "skipped" else "Chưa uống"
+                    
+                    # Get medication name from schedule
+                    med_name = log.schedule.medication_name if log.schedule else "Unknown"
+                    
+                    # Format time
+                    scheduled_vn = log.scheduled_time.astimezone(pytz.timezone('Asia/Ho_Chi_Minh'))
+                    time_str = scheduled_vn.strftime('%H:%M')
+                    
+                    result_parts.append(
+                        f"{status_icon} {med_name} lúc {time_str} - {status_text}"
+                    )
+                result_parts.append("")
+                result_parts.append("💡 Gợi ý: Tham khảo lịch sử này để KHÔNG hỏi lại những thuốc đã uống!")
+                result_parts.append("")
+        except Exception as e:
+            logger.warning(f"Could not fetch recent medication logs: {e}")
+        
+        # === 4. UPCOMING MEDICATIONS (24h) ===
+        try:
+            upcoming = get_upcoming_medications(user_id, hours=24)
+            if upcoming:
+                result_parts.append("【THUỐC SẮP UỐNG (24H TỚI)】")
+                for med in upcoming[:5]:  # Top 5
+                    result_parts.append(
+                        f"⏰ {med['display']}: {med['medication_name']} ({med.get('dosage', 'N/A')})"
+                    )
+                result_parts.append("")
+                result_parts.append("💡 Gợi ý: Hỏi user đã uống thuốc chưa CHỈ KHI thuốc CHƯA có trong lịch sử!")
+                result_parts.append("")
+        except Exception as e:
+            logger.warning(f"Could not fetch upcoming medications: {e}")
+        
+        # === 5. COMPLIANCE STATS ===
+        try:
+            stats = get_compliance_stats(user_id, days=7)
+            if stats['total'] > 0:
+                result_parts.append("【TUÂN THỦ UỐNG THUỐC (7 NGÀY)】")
+                result_parts.append(
+                    f"✅ Đã uống: {stats['taken']}/{stats['total']} "
+                    f"({stats['compliance_rate']:.0f}%)"
+                )
+                result_parts.append(f"⏭️ Bỏ qua: {stats['skipped']}")
+                result_parts.append(f"⏳ Chưa uống: {stats['pending']}")
+                result_parts.append("")
+                
+                if stats['compliance_rate'] < 70:
+                    result_parts.append("⚠️ Tỷ lệ tuân thủ thấp! Nên nhắc nhở user uống thuốc đều đặn.")
+                    result_parts.append("")
+        except Exception as e:
+            logger.warning(f"Could not fetch compliance stats: {e}")
+        
+        # === 5. PROACTIVE SUGGESTIONS ===
+        result_parts.append("【GỢI Ý CHỦ ĐỘNG】")
+        result_parts.append("Dựa trên thông tin trên, hãy:")
+        result_parts.append("• Tham khảo DỊ ỨNG trước khi đề xuất thuốc")
+        result_parts.append("• Nhắc nhở nếu có thuốc sắp uống")
+        result_parts.append("• Hỏi thêm về bệnh mãn tính nếu liên quan")
+        result_parts.append("• Đề xuất tìm bệnh viện nếu triệu chứng nghiêm trọng")
+        
+        formatted_result = "\n".join(result_parts)
+        logger.info(f"✓ Retrieved user context for user {user_id}")
+        return formatted_result
+        
+    except Exception as e:
+        logger.error(f"Error in lay_thong_tin_nguoi_dung: {e}", exc_info=True)
+        return f"Không thể lấy thông tin người dùng: {str(e)}"
+
+
 # Mapping function names to actual functions
 TOOL_FUNCTIONS = {
-    "tim_benh_vien_gan_nhat": tim_benh_vien_gan_nhat
+    "tim_benh_vien_gan_nhat": tim_benh_vien_gan_nhat,
+    "lay_thong_tin_nguoi_dung": lay_thong_tin_nguoi_dung
 }
 
 
