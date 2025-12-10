@@ -18,30 +18,47 @@ from src.services.hospital_finder_service import hospital_finder_service
 # TOOL DEFINITIONS - Định nghĩa các công cụ cho GPT
 # ═══════════════════════════════════════════════════════════════
 
+
 AVAILABLE_TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "tim_benh_vien_gan_nhat",
-            "description": "Tìm bệnh viện gần vị trí người dùng. Sử dụng khi user hỏi về bệnh viện gần, cần đi khám, hoặc có triệu chứng cần cấp cứu.",
+            "description": """Tìm bệnh viện gần vị trí người dùng và cung cấp thông tin liên hệ (địa chỉ, số điện thoại).
+
+SỬ DỤNG TOOL NÀY KHI user:
+- Hỏi về bệnh viện gần đây / gần nhất
+- Cần đi khám bệnh / cấp cứu
+- Hỏi địa chỉ bệnh viện
+- Hỏi số điện thoại bệnh viện
+- Cần tìm bệnh viện chuyên khoa (nhi, tim mạch, sản...)
+- Có triệu chứng cần khám ngay (sốt cao, đau ngực, khó thở...)
+- Hỏi "bệnh viện nào tốt", "nên đi bệnh viện nào"
+
+QUAN TRỌNG: Nếu user hỏi về thông tin liên hệ bệnh viện (số điện thoại, địa chỉ) mà KHÔNG cung cấp vị trí, hãy HỎI LẠI vị trí của họ trước khi gọi tool này.
+
+VÍ DỤ:
+- "Bệnh viện nào gần tôi?" → Gọi tool
+- "Bạn có số điện thoại bệnh viện không?" → HỎI: "Bạn đang ở khu vực nào để tôi tìm bệnh viện gần nhất?"
+- "Tôi ở Thủ Đức, bệnh viện nào gần?" → Gọi tool với vị trí Thủ Đức""",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "vi_do": {
                         "type": "number",
-                        "description": "Vĩ độ (latitude) của vị trí user"
+                        "description": "Vĩ độ (latitude) của vị trí user. VD: 10.8506 cho Thủ Đức, 10.7769 cho Quận 1"
                     },
                     "kinh_do": {
                         "type": "number",
-                        "description": "Kinh độ (longitude) của vị trí user"
+                        "description": "Kinh độ (longitude) của vị trí user. VD: 106.7719 cho Thủ Đức, 106.7009 cho Quận 1"
                     },
                     "chuyen_khoa": {
                         "type": "string",
-                        "description": "Chuyên khoa cần tìm (nếu có): nhi, tim mạch, sản, răng hàm mặt, da liễu..."
+                        "description": "Chuyên khoa cần tìm (nếu có): nhi, tim mạch, sản, răng hàm mặt, da liễu, mắt, tai mũi họng..."
                     },
                     "ban_kinh_km": {
                         "type": "number",
-                        "description": "Bán kính tìm kiếm (km), mặc định 5km"
+                        "description": "Bán kính tìm kiếm (km), mặc định 5km. Tăng lên 10-15km nếu khu vực xa trung tâm"
                     }
                 },
                 "required": ["vi_do", "kinh_do"]
@@ -49,6 +66,7 @@ AVAILABLE_TOOLS = [
         }
     }
 ]
+
 
 
 # ═══════════════════════════════════════════════════════════════

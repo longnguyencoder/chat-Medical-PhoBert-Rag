@@ -386,15 +386,30 @@ class MedicationLogList(Resource):
             user_id = current_user['user_id']
             data = request.json
             
-            if not data or 'log_id' not in data or 'status' not in data:
-                return {'message': 'log_id and status are required'}, 400
+            # Debug logging
+            logger.info(f"📥 Received medication log request from user {user_id}")
+            logger.info(f"📦 Request data: {data}")
+            logger.info(f"📦 Request data type: {type(data)}")
             
-            log_id = data['log_id']
-            status = data['status']
+            # Support both camelCase (from Flutter/Dart) and snake_case
+            log_id = data.get('log_id') or data.get('logId')
+            status = data.get('status')
             note = data.get('note')
+            
+            if not data or not log_id or not status:
+                logger.warning(f"❌ Missing required fields. Received data: {data}")
+                return {
+                    'message': 'log_id and status are required',
+                    'received_data': data,
+                    'required_fields': ['log_id (or logId)', 'status'],
+                    'hint': 'Make sure to send JSON with Content-Type: application/json'
+                }, 400
             
             if status not in ['taken', 'skipped']:
                 return {'message': 'status must be either "taken" or "skipped"'}, 400
+            
+            logger.info(f"✅ Processing: log_id={log_id}, status={status}, note={note}")
+
             
             # Ghi nhận log
             if status == 'taken':
@@ -451,4 +466,42 @@ class MedicationLogStats(Resource):
             
         except Exception as e:
             logger.error(f"Error getting compliance stats: {e}", exc_info=True)
+            return {'message': f'Internal server error: {str(e)}'}, 500
+
+
+@medication_ns.route('/logs/upcoming')
+class MedicationUpcoming(Resource):
+    """
+    Endpoint lấy danh sách thuốc sắp uống.
+    """
+    
+    @medication_ns.response(200, 'Success')
+    @medication_ns.response(401, 'Unauthorized')
+    @medication_ns.doc(security='Bearer')
+    @medication_ns.param('hours', 'Số giờ tới (mặc định 24)', type='int', default=24)
+    @token_required
+    def get(self, current_user):
+        """
+        Lấy danh sách thuốc sắp uống trong X giờ tới.
+        
+        Query params:
+        - hours: Số giờ tới (mặc định 24)
+        
+        Returns:
+            List các lượt uống thuốc sắp tới, sắp xếp theo thời gian
+        """
+        try:
+            user_id = current_user['user_id']
+            hours = int(request.args.get('hours', 24))
+            
+            upcoming = medication_service.get_upcoming_medications(user_id, hours)
+            
+            return {
+                'message': 'Success',
+                'count': len(upcoming),
+                'upcoming': upcoming
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting upcoming medications: {e}", exc_info=True)
             return {'message': f'Internal server error: {str(e)}'}, 500

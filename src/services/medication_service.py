@@ -297,14 +297,14 @@ def get_compliance_stats(user_id: int, days: int = 30) -> Dict:
 
 def get_upcoming_medications(user_id: int, hours: int = 24) -> List[Dict]:
     """
-    Lấy danh sách thuốc sắp uống trong X giờ tới (cho chatbot).
+    Lấy danh sách thuốc sắp uống trong X giờ tới (cho chatbot và API).
     
     Args:
         user_id: ID người dùng
         hours: Số giờ tới (mặc định 24h)
     
     Returns:
-        List[Dict] chứa thông tin thuốc sắp uống
+        List[Dict] chứa thông tin thuốc sắp uống, sắp xếp theo thời gian
     """
     now = datetime.now(VIETNAM_TZ)
     end_time = now + timedelta(hours=hours)
@@ -319,15 +319,34 @@ def get_upcoming_medications(user_id: int, hours: int = 24) -> List[Dict]:
     
     result = []
     for log in logs:
+        scheduled_vn = log.scheduled_time.astimezone(VIETNAM_TZ)
+        
+        # Tính xem là hôm nay, ngày mai, hay ngày nào
+        today = now.date()
+        scheduled_date = scheduled_vn.date()
+        
+        if scheduled_date == today:
+            date_label = "Hôm nay"
+        elif scheduled_date == today + timedelta(days=1):
+            date_label = "Ngày mai"
+        else:
+            date_label = scheduled_vn.strftime('%d/%m/%Y')
+        
         result.append({
             'log_id': log.log_id,
+            'schedule_id': log.schedule_id,
             'medication_name': log.schedule.medication_name,
             'dosage': log.schedule.dosage,
-            'scheduled_time': log.scheduled_time.astimezone(VIETNAM_TZ).strftime('%H:%M'),
+            'scheduled_time': scheduled_vn.isoformat(),  # Full ISO datetime
+            'time': scheduled_vn.strftime('%H:%M'),  # Chỉ giờ:phút
+            'date': scheduled_vn.strftime('%Y-%m-%d'),  # Ngày
+            'date_label': date_label,  # "Hôm nay", "Ngày mai", hoặc "DD/MM/YYYY"
+            'display': f"{date_label} {scheduled_vn.strftime('%H:%M')}",  # "Hôm nay 20:00"
             'notes': log.schedule.notes
         })
     
     return result
+
 
 
 # ============================================================================

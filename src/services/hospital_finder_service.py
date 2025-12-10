@@ -331,9 +331,40 @@ class HospitalFinderService:
             String formatted sẵn để hiển thị cho user
         """
         if not hospitals:
-            return "Không tìm thấy bệnh viện nào trong khu vực."
+            return """Không tìm thấy bệnh viện nào trong khu vực.
+
+🚨 **ĐƯỜNG DÂY NÓNG Y TẾ**
+📞 **115** - Cấp cứu y tế 24/7 (miễn phí)
+Gọi ngay nếu cần hỗ trợ khẩn cấp!
+
+⚠️ *Lưu ý: Thông tin chỉ mang tính chất tham khảo. Vui lòng tham khảo ý kiến bác sĩ để được chẩn đoán và điều trị chính xác.*"""
         
         result = f"Tìm thấy {len(hospitals)} bệnh viện gần bạn:\n\n"
+        
+        # Danh sách số điện thoại của các bệnh viện lớn (fallback nếu OSM không có)
+        KNOWN_HOSPITAL_PHONES = {
+            # TP.HCM
+            'chợ rẫy': '028 3855 4137',
+            'bệnh viện chợ rẫy': '028 3855 4137',
+            'thống nhất': '028 3829 5071',
+            'bệnh viện thống nhất': '028 3829 5071',
+            '115': '115',
+            'bệnh viện 115': '028 3950 7506',
+            'nhi đồng 1': '028 3829 5723',
+            'nhi đồng 2': '028 3899 3498',
+            'từ dũ': '028 3829 5024',
+            'hùng vương': '028 3829 5024',
+            'thành phố thủ đức': '028 3897 1212',
+            'bệnh viện thành phố thủ đức': '028 3897 1212',
+            'quận dân y miền đông': '028 3724 3434',
+            'đa khoa miền đông': '028 3724 3434',
+            
+            # Hà Nội
+            'bạch mai': '024 3869 3731',
+            'bệnh viện bạch mai': '024 3869 3731',
+            'việt đức': '024 3825 3531',
+            'bệnh viện việt đức': '024 3825 3531',
+        }
         
         for i, h in enumerate(hospitals, 1):
             # Thêm icon cho bệnh viện công lập/lớn
@@ -349,8 +380,22 @@ class HospitalFinderService:
             if h.get('is_public'):
                 result += f"   🏥 Bệnh viện công lập\n"
             
-            if h.get('phone'):
-                result += f"   📞 Điện thoại: {h['phone']}\n"
+            # Số điện thoại - ưu tiên từ OSM, fallback sang danh sách known
+            phone = h.get('phone')
+            if not phone:
+                # Tìm trong danh sách known hospitals
+                hospital_name_lower = h['name'].lower()
+                for key, known_phone in KNOWN_HOSPITAL_PHONES.items():
+                    if key in hospital_name_lower:
+                        phone = known_phone
+                        break
+            
+            if phone:
+                result += f"   📞 Điện thoại: {phone}\n"
+            else:
+                # Gợi ý tìm trên Google
+                result += f"   📞 Điện thoại: Tìm trên Google '{h['name']} số điện thoại'\n"
+
             
             if h.get('emergency'):
                 result += f"   🚨 Có cấp cứu 24/7\n"
@@ -363,9 +408,19 @@ class HospitalFinderService:
             
             result += "\n"
         
-        result += "\n💡 Dữ liệu từ OpenStreetMap • Ưu tiên bệnh viện công lập và lớn"
+        # Thêm thông tin đường dây nóng và lời khuyên y tế
+        result += """---
+
+🚨 **ĐƯỜNG DÂY NÓNG Y TẾ**
+📞 **115** - Cấp cứu y tế 24/7 (miễn phí)
+Gọi ngay nếu bạn hoặc người thân cần hỗ trợ y tế khẩn cấp!
+
+💡 *Dữ liệu từ OpenStreetMap • Ưu tiên bệnh viện công lập và lớn*
+
+⚠️ **Lưu ý quan trọng:** Thông tin trên chỉ mang tính chất tham khảo. Vui lòng đến gặp bác sĩ hoặc cơ sở y tế để được khám, chẩn đoán và điều trị chính xác. Chatbot không thể thay thế ý kiến của chuyên gia y tế."""
         
         return result
+
 
 
 # Singleton instance
