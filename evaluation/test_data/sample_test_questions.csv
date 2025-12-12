@@ -1,0 +1,11 @@
+question,expected_answer,relevant_doc_ids,category
+"Sốt xuất huyết có triệu chứng gì?","Sốt cao đột ngột (39-40°C), đau đầu dữ dội, đau mỏi cơ và khớp, buồn nôn, nôn, xuất hiện ban xuất huyết dưới da.","dengue_001","symptoms"
+"Cách điều trị sốt xuất huyết?","Nghỉ ngơi tuyệt đối, uống nhiều nước, hạ sốt bằng paracetamol, theo dõi số lượng tiểu cầu. Không dùng aspirin hay ibuprofen. Nhập viện nếu xuất huyết nặng.","dengue_001,dengue_treatment_001","treatment"
+"Viêm gan B lây qua đường nào?","Lây qua đường máu (kim tiêm, dụng cụ y tế), quan hệ tình dục không an toàn, từ mẹ sang con khi sinh.","hepatitis_b_001","transmission"
+"Paracetamol uống liều bao nhiêu?","Người lớn: 500-1000mg mỗi lần, cách 4-6 giờ, tối đa 4000mg/ngày. Trẻ em: 10-15mg/kg cân nặng mỗi lần.","paracetamol_001","medication"
+"Phòng ngừa COVID-19 như thế nào?","Tiêm vắc-xin đầy đủ, đeo khẩu trang nơi đông người, rửa tay thường xuyên, giữ khoảng cách an toàn, tránh tụ tập đông người.","covid19_prevention_001","prevention"
+"Triệu chứng viêm gan B là gì?","Mệt mỏi, vàng da, vàng mắt, nước tiểu sẫm màu, đau vùng gan, buồn nôn, chán ăn.","hepatitis_b_001","symptoms"
+"Sốt xuất huyết nguy hiểm như thế nào?","Nguy hiểm khi tiểu cầu giảm dưới 50,000, xuất huyết nội tạng, sốc, có thể tử vong nếu không điều trị kịp thời.","dengue_001","complications"
+"Vắc-xin COVID-19 có tác dụng phụ gì?","Đau tại chỗ tiêm, sốt nhẹ, mệt mỏi, đau đầu, đau cơ. Thường tự khỏi sau 1-2 ngày.","covid19_vaccine_001","side_effects"
+"Cách phòng ngừa sốt xuất huyết?","Diệt muỗi, không để nước đọng, ngủ màn, mặc quần áo dài tay, xịt thuốc diệt muỗi.","dengue_001","prevention"
+"Viêm gan B có chữa khỏi được không?","Viêm gan B cấp có thể tự khỏi. Viêm gan B mãn tính cần điều trị dài hạn bằng thuốc kháng virus, kiểm soát được nhưng khó chữa khỏi hoàn toàn.","hepatitis_b_001,hepatitis_b_treatment_001","prognosis"

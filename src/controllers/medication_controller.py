@@ -285,7 +285,12 @@ class MedicationScheduleDetail(Resource):
             return {'message': str(e)}, 400
             
         except Exception as e:
-            logger.error(f"Error updating medication schedule: {e}", exc_info=True)
+            # ADDED LOGGING FOR DEBUGGING
+            logger.error(f"❌ Error updating schedule {schedule_id} for user {user_id}")
+            logger.error(f"Request data: {data}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            
             db.session.rollback()
             return {'message': f'Internal server error: {str(e)}'}, 500
     

@@ -186,12 +186,12 @@ class MedicationSchedule(db.Model):
             'schedule_id': self.schedule_id,
             'user_id': self.user_id,
             'medication_name': self.medication_name,
-            'dosage': self.dosage,
+            'dosage': self.dosage or "",  # Return empty string to prevent client null error
             'frequency': self.frequency,
             'time_of_day': self.get_time_of_day_list(),
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,
-            'notes': self.notes,
+            'notes': self.notes or "",  # Return empty string to prevent client null error
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None

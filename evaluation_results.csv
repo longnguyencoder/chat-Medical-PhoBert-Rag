@@ -1,0 +1,118 @@
+﻿question,expected_answer,generated_answer,retrieved_ids,relevant_ids,auto_detected,response_time,top_scores,precision@1,recall@1,ndcg@1,precision@3,recall@3,ndcg@3,precision@5,recall@5,ndcg@5,mrr,semantic_similarity,entity_accuracy
+Sốt xuất huyết có triệu chứng gì?,"Sốt cao đột ngột (39-40°C), đau đầu dữ dội, đau mỏi cơ và khớp, buồn nôn, nôn, xuất hiện ban xuất huyết dưới da.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), sốt xuất huyết thường có các triệu chứng sau:
+
+• **Sốt cao đột ngột**: Thường là triệu chứng đầu tiên, sốt có thể kéo dài từ 2 đến 7 ngày.
+• **Đau đầu dữ dội**: Đặc biệt là đau phía sau mắt.
+• **Đau cơ và khớp**: Cảm giác đau nhức toàn thân, đôi khi được gọi là ""sốt gãy xương"".
+• **Phát ban**: Xuất hiện trên da, có thể giống như phát ban do sởi.
+• **Chảy máu nhẹ**: Như chảy máu mũi, chảy máu nướu, hoặc dễ bầm tím.
+• **Mệt mỏi và buồn nôn**: Cảm giác mệt mỏi, buồn nôn hoặc nôn mửa.
+
+Nếu bạn hoặc người thân có các triệu chứng trên, đặc biệt là sốt cao và đau nhức cơ thể, bạn nên đi khám bác sĩ để được chẩn đoán và điều trị kịp thời. Sốt xuất huyết có thể dẫn đến các biến chứng nghiêm trọng nếu không được điều trị đúng cách.","['excel_qa_1580', 'excel_qa_680', 'excel_qa_472', 'excel_qa_319', 'excel_qa_1940']","['excel_qa_1580', 'excel_qa_680', 'excel_qa_472', 'excel_qa_319', 'excel_qa_1940']",True,7.495191812515259,"[{'id': 'excel_qa_1580', 'score': 0.10926662486434276, 'disease': 'Bị sốt xuất huyết, tiểu cầu giảm 17000 có cần truy'}, {'id': 'excel_qa_680', 'score': 0.10806692098828015, 'disease': 'Chỉ số ferritin là 290 có bị ứ sắt không'}, {'id': 'excel_qa_472', 'score': 0.10803670241001062, 'disease': 'Thường nôn ra máu là dấu hiệu tiến triển bệnh dạ d'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.8365960121154785,1.0
+Cách điều trị sốt xuất huyết?,"Nghỉ ngơi tuyệt đối, uống nhiều nước, hạ sốt bằng paracetamol, theo dõi số lượng tiểu cầu. Không dùng aspirin hay ibuprofen. Nhập viện nếu xuất huyết nặng.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), sốt xuất huyết là một bệnh do virus Dengue gây ra, lây truyền qua muỗi Aedes. Dưới đây là một số cách điều trị và quản lý sốt xuất huyết:
+
+• **Nghỉ ngơi và bù nước**: Người bệnh cần nghỉ ngơi nhiều và uống nhiều nước để tránh mất nước. Nước lọc, nước trái cây, và dung dịch điện giải là những lựa chọn tốt.
+
+• **Hạ sốt**: Sử dụng thuốc hạ sốt như Paracetamol để giảm sốt và đau nhức. Tránh dùng aspirin hoặc ibuprofen vì có thể làm tăng nguy cơ chảy máu.
+
+• **Theo dõi triệu chứng**: Theo dõi các triệu chứng nghiêm trọng như chảy máu, đau bụng dữ dội, nôn mửa liên tục, và cần đến bệnh viện ngay nếu có dấu hiệu nặng.
+
+• **Điều trị tại bệnh viện**: Trong trường hợp nặng, người bệnh có thể cần nhập viện để được truyền dịch qua đường tĩnh mạch và theo dõi chặt chẽ.
+
+• **Phòng ngừa**: Hiện chưa có vắc-xin phòng sốt xuất huyết phổ biến, vì vậy việc phòng ngừa chủ yếu dựa vào việc tránh muỗi đốt bằng cách sử dụng màn chống muỗi, kem chống muỗi, và loại bỏ nơi muỗi sinh sản.
+
+Nếu bạn hoặc người thân có triệu chứng nghi ngờ sốt xuất huyết, hãy đến cơ sở y tế để được thăm khám và điều trị kịp thời.","['disease_26', 'disease_31', 'disease_12', 'disease_2', 'disease_39']","['disease_26', 'disease_31', 'disease_12', 'disease_2', 'disease_39']",True,6.6316304206848145,"[{'id': 'disease_26', 'score': 0.11520322602783821, 'disease': 'Sởi'}, {'id': 'disease_31', 'score': 0.11431416291794505, 'disease': 'Sốt rét (Malaria)'}, {'id': 'disease_12', 'score': 0.11132084365422694, 'disease': 'Viêm phổi'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.8688365817070007,0.8
+Viêm gan B lây qua đường nào?,"Lây qua đường máu (kim tiêm, dụng cụ y tế), quan hệ tình dục không an toàn, từ mẹ sang con khi sinh.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), viêm gan B lây truyền qua các con đường sau:
+
+- **Đường máu**: Khi tiếp xúc với máu hoặc các sản phẩm từ máu của người nhiễm viêm gan B, chẳng hạn như qua kim tiêm không tiệt trùng, truyền máu không an toàn.
+- **Đường tình dục**: Quan hệ tình dục không an toàn với người nhiễm viêm gan B.
+- **Từ mẹ sang con**: Trong quá trình sinh nở, virus có thể truyền từ mẹ sang con.
+
+Nếu bạn có bất kỳ lo ngại nào về nguy cơ lây nhiễm hoặc cần thêm thông tin, hãy tham khảo ý kiến bác sĩ để được tư vấn và xét nghiệm cụ thể.","['excel_qa_386', 'excel_qa_789', 'excel_qa_429', 'excel_qa_1298', 'excel_qa_752']","['excel_qa_386', 'excel_qa_789', 'excel_qa_429', 'excel_qa_1298']",True,3.468717098236084,"[{'id': 'excel_qa_386', 'score': 0.10467127814681344, 'disease': 'Tỷ lệ lây viêm gan B từ mẹ sang con khi mang thai '}, {'id': 'excel_qa_789', 'score': 0.10074214244223527, 'disease': 'Viêm gan B thể ngủ có thể điều trị để chuyển sang '}, {'id': 'excel_qa_429', 'score': 0.10052970248049249, 'disease': 'Tiếp xúc với dịch sinh lý của người nhiễm HIV có b'}]",1.0,0.25,1.0,1.0,0.75,1.0,0.8,1.0,1.0,1.0,0.7931421995162964,0.0
+Paracetamol uống liều bao nhiêu?,"Người lớn: 500-1000mg mỗi lần, cách 4-6 giờ, tối đa 4000mg/ngày. Trẻ em: 10-15mg/kg cân nặng mỗi lần.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), liều dùng Paracetamol thông thường cho người lớn là 500 mg đến 1000 mg mỗi lần, cách nhau ít nhất 4-6 giờ, và không nên vượt quá 4000 mg trong 24 giờ. Đối với trẻ em, liều lượng thường được tính dựa trên cân nặng, vì vậy bạn nên tham khảo ý kiến bác sĩ hoặc dược sĩ để có liều lượng chính xác.
+
+• Nếu bạn có bất kỳ dị ứng nào với Paracetamol hoặc các thành phần khác trong thuốc, hãy tránh sử dụng và tham khảo ý kiến bác sĩ.
+• Nếu bạn có bệnh mãn tính hoặc đang dùng các loại thuốc khác, hãy chắc chắn rằng không có tương tác thuốc bất lợi.
+
+Nếu bạn có bất kỳ triệu chứng nào nghiêm trọng hoặc cần thêm thông tin, tôi có thể giúp tìm bệnh viện gần bạn. Hãy cho tôi biết nếu bạn cần hỗ trợ thêm!","['qa_20', 'qa_6', 'qa_39', 'excel_qa_2034', 'qa_43']",[],False,12.441729068756104,"[{'id': 'qa_20', 'score': 0.09429007730236803, 'disease': 'Cảm cúm'}, {'id': 'qa_6', 'score': 0.09329654691665028, 'disease': 'Sốt xuất huyết'}, {'id': 'qa_39', 'score': 0.08971551164166545, 'disease': 'Cảm cúm'}]",0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.6821448802947998,0.0
+Phòng ngừa COVID-19 như thế nào?,"Tiêm vắc-xin đầy đủ, đeo khẩu trang nơi đông người, rửa tay thường xuyên, giữ khoảng cách an toàn, tránh tụ tập đông người.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), để phòng ngừa COVID-19, bạn có thể thực hiện các biện pháp sau:
+
+• **Tiêm vaccine:** Đảm bảo rằng bạn đã tiêm đầy đủ các liều vaccine COVID-19 theo khuyến cáo của cơ quan y tế. Vaccine giúp giảm nguy cơ nhiễm bệnh và các biến chứng nặng.
+
+• **Đeo khẩu trang:** Đeo khẩu trang khi ở nơi công cộng, đặc biệt là trong không gian kín hoặc nơi có nhiều người.
+
+• **Giữ khoảng cách:** Duy trì khoảng cách tối thiểu 1-2 mét với người khác, đặc biệt là những người có triệu chứng bệnh.
+
+• **Rửa tay thường xuyên:** Sử dụng xà phòng và nước hoặc dung dịch sát khuẩn tay có chứa cồn.
+
+• **Tránh tụ tập đông người:** Hạn chế tham gia các sự kiện đông người và tránh tiếp xúc gần với người bệnh.
+
+• **Theo dõi sức khỏe:** Nếu có triệu chứng nghi ngờ nhiễm COVID-19, hãy tự cách ly và liên hệ với cơ sở y tế để được hướng dẫn.
+
+Nếu bạn có bất kỳ triệu chứng nào kéo dài hoặc nghi ngờ nhiễm bệnh, hãy đi khám bác sĩ để được tư vấn và điều trị kịp thời.","['excel_qa_1993', 'excel_qa_1812', 'excel_qa_1790', 'excel_qa_1282', 'excel_qa_1579']","['excel_qa_1993', 'excel_qa_1812', 'excel_qa_1790', 'excel_qa_1282', 'excel_qa_1579']",True,5.0603203773498535,"[{'id': 'excel_qa_1993', 'score': 0.10869893334527535, 'disease': 'Lao phổi đã chữa khỏi cách đây 20 năm có phải là b'}, {'id': 'excel_qa_1812', 'score': 0.10690415896534469, 'disease': 'Tôi tiêm mũi một AstraZeneca thì 21 ngày sau tiêm '}, {'id': 'excel_qa_1790', 'score': 0.10674889145977105, 'disease': 'Tôi bị động kinh, huyết áp thấp có tiêm vaccine ng'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.8025346994400024,0.0
+Triệu chứng viêm gan B là gì?,"Mệt mỏi, vàng da, vàng mắt, nước tiểu sẫm màu, đau vùng gan, buồn nôn, chán ăn.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), viêm gan B là một bệnh nhiễm trùng gan do virus viêm gan B (HBV) gây ra. Các triệu chứng của viêm gan B có thể bao gồm:
+
+• Mệt mỏi: Cảm giác mệt mỏi kéo dài mà không rõ nguyên nhân.
+• Sốt nhẹ: Có thể xuất hiện sốt nhẹ, đặc biệt trong giai đoạn đầu.
+• Vàng da và mắt: Da và lòng trắng của mắt có thể chuyển sang màu vàng.
+• Nước tiểu sẫm màu: Nước tiểu có thể trở nên sẫm màu hơn bình thường.
+• Đau bụng: Đặc biệt là đau ở vùng gan (phía trên bên phải của bụng).
+• Buồn nôn và nôn: Cảm giác buồn nôn và có thể nôn mửa.
+• Chán ăn: Mất cảm giác thèm ăn hoặc ăn không ngon miệng.
+
+Nếu bạn hoặc ai đó có các triệu chứng trên, đặc biệt là vàng da hoặc mắt, nên đi khám bác sĩ để được chẩn đoán và điều trị kịp thời. Viêm gan B có thể dẫn đến các biến chứng nghiêm trọng nếu không được điều trị đúng cách.","['excel_qa_386', 'excel_qa_1889', 'excel_qa_594', 'excel_qa_789', 'excel_qa_1790']","['excel_qa_386', 'excel_qa_1889', 'excel_qa_594', 'excel_qa_789', 'excel_qa_1790']",True,4.204575538635254,"[{'id': 'excel_qa_386', 'score': 0.11085059712268142, 'disease': 'Tỷ lệ lây viêm gan B từ mẹ sang con khi mang thai '}, {'id': 'excel_qa_1889', 'score': 0.10729495511845283, 'disease': 'Bị viêm gan B mạn tính khi nào cần uống thuốc'}, {'id': 'excel_qa_594', 'score': 0.10603422646635499, 'disease': 'Tôi bị viêm gan B đang điều trị, vậy tôi có thể ti'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.770826518535614,1.0
+Sốt xuất huyết nguy hiểm như thế nào?,"Nguy hiểm khi tiểu cầu giảm dưới 50,000, xuất huyết nội tạng, sốc, có thể tử vong nếu không điều trị kịp thời.","Chào bạn,
+
+Theo thông tin từ nguồn y tế, sốt xuất huyết là một bệnh nguy hiểm và được chia thành ba giai đoạn: giai đoạn sốt, giai đoạn nguy hiểm, và giai đoạn hồi phục. Giai đoạn nguy hiểm thường từ ngày thứ 3 đến ngày thứ 7 của bệnh. Trong giai đoạn này, mặc dù sốt có thể giảm, nhưng có thể xuất hiện các triệu chứng nặng như:
+
+- Xuất huyết dưới da và niêm mạc do giảm số lượng tiểu cầu.
+- Đau bụng vùng gan, nôn mửa.
+- Men gan tăng cao.
+- Tràn dịch màng bụng, màng phổi.
+
+Những triệu chứng này có thể dẫn đến các biến chứng nghiêm trọng nếu không được điều trị kịp thời. Vì vậy, nếu bạn hoặc người thân có dấu hiệu của sốt xuất huyết, đặc biệt là trong giai đoạn nguy hiểm, hãy đi khám bác sĩ ngay để được chẩn đoán và điều trị kịp thời.
+
+Nếu bạn cần thêm thông tin hoặc hỗ trợ tìm bệnh viện gần nhất, hãy cho tôi biết vị trí của bạn để tôi có thể giúp đỡ.","['excel_qa_1227', 'excel_qa_2134', 'excel_qa_622', 'excel_qa_1092', 'excel_qa_984']","['excel_qa_1227', 'excel_qa_2134', 'excel_qa_622', 'excel_qa_1092', 'excel_qa_984']",True,3.949208974838257,"[{'id': 'excel_qa_1227', 'score': 0.10685709572764289, 'disease': 'Chảy máu cam khi bị sốt xuất huyết có nguy hiểm kh'}, {'id': 'excel_qa_2134', 'score': 0.10604787427095895, 'disease': 'Bướu huyết thanh có thể tự tan hay không'}, {'id': 'excel_qa_622', 'score': 0.10515400811808324, 'disease': 'Amylase, Lipase máu có chỉ số 1147.0, 1771.6 là dấ'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.8395039439201355,1.0
+Vắc-xin COVID-19 có tác dụng phụ gì?,"Đau tại chỗ tiêm, sốt nhẹ, mệt mỏi, đau đầu, đau cơ. Thường tự khỏi sau 1-2 ngày.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), vắc-xin COVID-19 có thể gây ra một số tác dụng phụ, tuy nhiên, hầu hết các tác dụng phụ này thường nhẹ và tạm thời. Dưới đây là một số tác dụng phụ phổ biến:
+
+• **Phản ứng tại chỗ tiêm**: Đau, sưng, đỏ tại vị trí tiêm là những phản ứng thường gặp và thường tự hết sau vài ngày.
+
+• **Phản ứng toàn thân**: Có thể bao gồm sốt nhẹ, mệt mỏi, đau đầu, đau cơ, và ớn lạnh. Những triệu chứng này thường xuất hiện trong vòng 1-2 ngày sau tiêm và kéo dài không quá vài ngày.
+
+• **Phản ứng dị ứng nghiêm trọng**: Rất hiếm khi xảy ra, nhưng có thể bao gồm phản vệ. Do đó, sau khi tiêm, bạn thường được yêu cầu ở lại nơi tiêm chủng trong khoảng 15-30 phút để theo dõi.
+
+Nếu bạn có bất kỳ lo ngại nào về tác dụng phụ hoặc có tiền sử dị ứng nghiêm trọng, bạn nên thảo luận với bác sĩ trước khi tiêm vắc-xin. Nếu có triệu chứng kéo dài hoặc nghiêm trọng, hãy liên hệ với cơ sở y tế để được tư vấn và chăm sóc kịp thời.","['excel_qa_1903', 'excel_qa_232', 'excel_qa_1282', 'excel_qa_1790', 'excel_qa_1405']","['excel_qa_1903', 'excel_qa_232', 'excel_qa_1282', 'excel_qa_1790', 'excel_qa_1405']",True,4.797951936721802,"[{'id': 'excel_qa_1903', 'score': 0.11631334388772847, 'disease': 'Vắc-xin 5in1 và 6in1 cho trẻ khác nhau điểm gì'}, {'id': 'excel_qa_232', 'score': 0.1148916214632892, 'disease': 'Trường hợp có con nhỏ, sau tiêm vaccine AstraZenec'}, {'id': 'excel_qa_1282', 'score': 0.11409832440864137, 'disease': 'Tôi bị sốc thuốc phản quang trong chụp CT, vậy xin'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.7597882747650146,1.0
+Cách phòng ngừa sốt xuất huyết?,"Diệt muỗi, không để nước đọng, ngủ màn, mặc quần áo dài tay, xịt thuốc diệt muỗi.","Chào bạn,
+
+Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể), để phòng ngừa sốt xuất huyết, bạn có thể thực hiện các biện pháp sau:
+
+• **Tránh muỗi đốt**: Sử dụng kem chống muỗi, mặc quần áo dài tay, ngủ màn, và sử dụng màn tẩm hóa chất diệt muỗi.
+
+• **Loại bỏ nơi sinh sản của muỗi**: Đậy kín các dụng cụ chứa nước, loại bỏ các vật dụng không cần thiết có thể chứa nước mưa như lốp xe cũ, chai lọ, để tránh muỗi đẻ trứng.
+
+• **Phun thuốc diệt muỗi**: Thực hiện phun thuốc diệt muỗi định kỳ trong và xung quanh nhà.
+
+• **Giữ vệ sinh môi trường**: Dọn dẹp nhà cửa và khu vực xung quanh để giảm thiểu nơi trú ẩn của muỗi.
+
+Nếu bạn có bất kỳ triệu chứng nào nghi ngờ sốt xuất huyết, hãy đến cơ sở y tế để được khám và điều trị kịp thời.","['disease_31', 'disease_26', 'disease_30', 'disease_12', 'disease_28']","['disease_31', 'disease_26', 'disease_30', 'disease_12', 'disease_28']",True,4.324338436126709,"[{'id': 'disease_31', 'score': 0.11443704908777128, 'disease': 'Sốt rét (Malaria)'}, {'id': 'disease_26', 'score': 0.11324265218072152, 'disease': 'Sởi'}, {'id': 'disease_30', 'score': 0.11141131094709715, 'disease': 'Viêm não Nhật Bản'}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.7637698650360107,1.0
+Viêm gan B có chữa khỏi được không?,"Viêm gan B cấp có thể tự khỏi. Viêm gan B mãn tính cần điều trị dài hạn bằng thuốc kháng virus, kiểm soát được nhưng khó chữa khỏi hoàn toàn.","Chào bạn,
+
+Theo thông tin từ [Nguồn 1](https://www.vinmec.com/vi/tin-tuc/hoi-dap-bac-si/viem-gan-b-the-ngu-co-the-dieu-tri-de-chuyen-sang-am-tinh-duoc-khong/), viêm gan B, đặc biệt là thể ngủ, không thể điều trị để chuyển sang âm tính được. Điều trị viêm gan B mạn là một vấn đề khó khăn và hiện tại chưa có phương pháp nào có thể chữa khỏi hoàn toàn viêm gan B.
+
+Tuy nhiên, việc quản lý và điều trị có thể giúp kiểm soát bệnh, giảm nguy cơ biến chứng và cải thiện chất lượng cuộc sống. Nếu bạn hoặc người thân có viêm gan B, nên thường xuyên thăm khám bác sĩ chuyên khoa để được theo dõi và điều trị phù hợp.
+
+Nếu bạn có thêm câu hỏi hoặc cần tư vấn chi tiết hơn, hãy liên hệ với bác sĩ chuyên khoa gan mật.","['excel_qa_789', 'excel_qa_1993', 'excel_qa_386', 'excel_qa_1996', 'excel_qa_619']","['excel_qa_789', 'excel_qa_1993', 'excel_qa_386', 'excel_qa_1996', 'excel_qa_619']",True,3.431065559387207,"[{'id': 'excel_qa_789', 'score': 0.13961922730985832, 'disease': 'Viêm gan B thể ngủ có thể điều trị để chuyển sang '}, {'id': 'excel_qa_1993', 'score': 0.12682518982183794, 'disease': 'Lao phổi đã chữa khỏi cách đây 20 năm có phải là b'}, {'id': 'excel_qa_386', 'score': 0.12624217429491902, 'disease': 'Tỷ lệ lây viêm gan B từ mẹ sang con khi mang thai '}]",1.0,0.2,1.0,1.0,0.6,1.0,1.0,1.0,1.0,1.0,0.790943443775177,0.75

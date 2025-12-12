@@ -64,7 +64,8 @@ def cached_response(
     search_results: List[Dict],
     extracted_features: Dict[str, Any],
     conversation_id: Optional[int] = None,
-    user_name: Optional[str] = None
+    user_name: Optional[str] = None,
+    image_base64: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Cached wrapper for response generation
@@ -81,7 +82,12 @@ def cached_response(
         Generated response (from cache or fresh generation)
     """
     if not CACHE_ENABLED:
-        return response_func(question, search_results, extracted_features, conversation_id, user_name)
+        return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64)
+    
+    # Don't cache if image is provided (images are unique/complex)
+    if image_base64 is not None:
+         logger.debug("Skipping cache for image-based query")
+         return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64)
     
     # Don't cache if conversation_id is provided (personalized responses)
     if conversation_id is not None:

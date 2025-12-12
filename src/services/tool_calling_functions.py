@@ -242,12 +242,25 @@ def lay_thong_tin_nguoi_dung(user_id: int) -> str:
                     # Get medication name from schedule
                     med_name = log.schedule.medication_name if log.schedule else "Unknown"
                     
-                    # Format time
+                    # Format time with date context
                     scheduled_vn = log.scheduled_time.astimezone(pytz.timezone('Asia/Ho_Chi_Minh'))
+                    
+                    # Check if today or yesterday
+                    today_str = now.strftime('%Y-%m-%d')
+                    log_date_str = scheduled_vn.strftime('%Y-%m-%d')
+                    yesterday_str = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+                    
+                    if log_date_str == today_str:
+                        date_display = "Hôm nay"
+                    elif log_date_str == yesterday_str:
+                        date_display = "Hôm qua"
+                    else:
+                        date_display = scheduled_vn.strftime('%d/%m')
+                        
                     time_str = scheduled_vn.strftime('%H:%M')
                     
                     result_parts.append(
-                        f"{status_icon} {med_name} lúc {time_str} - {status_text}"
+                        f"{status_icon} {med_name} lúc {time_str} ({date_display}) - {status_text}"
                     )
                 result_parts.append("")
                 result_parts.append("💡 Gợi ý: Tham khảo lịch sử này để KHÔNG hỏi lại những thuốc đã uống!")

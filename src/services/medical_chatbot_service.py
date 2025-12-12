@@ -63,11 +63,13 @@ MEDICAL_KEYWORDS = {
 }
 
 # Confidence threshold for search results
-CONFIDENCE_THRESHOLD = 0.15
+# OPTIMIZED: Lowered threshold to include more relevant results
+CONFIDENCE_THRESHOLD = 0.10  # Lowered from 0.15 for better recall
 
 # Hybrid search weights (BM25 + Vector)
-HYBRID_BM25_WEIGHT = 0.3  # 30% BM25 keyword matching
-HYBRID_VECTOR_WEIGHT = 0.7  # 70% semantic vector search
+# OPTIMIZED: heavily favor BM25 for precise medical terms
+HYBRID_BM25_WEIGHT = 0.7  # 70% BM25 keyword matching (increased from 0.5)
+HYBRID_VECTOR_WEIGHT = 0.3  # 30% semantic vector search (decreased from 0.5)
 
 # ═══════════════════════════════════════════════════════════════
 # RAG OPTIMIZATION: Query Expansion & Reranking
@@ -119,6 +121,42 @@ Câu 2: Sốt trên bao nhiêu độ C là nguy hiểm?
     except Exception as e:
         logger.warning(f"Query expansion failed: {e}. Using original query only.")
         return [question]
+
+def generate_search_query_from_image(image_base64: str) -> str:
+    """
+    Analyze image using GPT-4o Vision to generate search keywords.
+    
+    Args:
+        image_base64: Base64 encoded image string
+        
+    Returns:
+        String containing search keywords (e.g., "mẩn đỏ ngứa viêm da")
+    """
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Hãy nhìn bức ảnh này và liệt kê 3-5 từ khóa y tế quan trọng nhất bằng tiếng Việt để tìm kiếm trong cơ sở dữ liệu. VÍ DỤ: 'mẩn đỏ ngứa', 'vết thương hở', 'sưng tấy'. CHỈ TRẢ VỀ TỪ KHÓA, KHÔNG GIẢI THÍCH."},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_base64 if image_base64.startswith("data:image") else f"data:image/jpeg;base64,{image_base64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=50
+        )
+        keywords = response.choices[0].message.content.strip()
+        logger.info(f"🖼️ Image keywords extracted: {keywords}")
+        return keywords
+    except Exception as e:
+        logger.error(f"Failed to extract keywords from image: {e}")
+        return ""
 
 def rewrite_query_with_context(question: str, conversation_id: int) -> str:
     """
@@ -650,7 +688,8 @@ def generate_natural_response(
     search_results: List[Dict],
     extracted_features: Dict[str, Any],
     conversation_id: Optional[int] = None,
-    user_name: Optional[str] = None
+    user_name: Optional[str] = None,
+    image_base64: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Generate natural language response using enhanced prompts.
@@ -777,12 +816,12 @@ Câu trả lời: {original_answer}
 Bạn là Bác sĩ AI với 10 năm kinh nghiệm lâm sàng, chuyên tư vấn sức khỏe cho người Việt Nam.
 
 QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):
-1. ✅ SỬ DỤNG CHÍNH XÁC thông tin từ [Nguồn] được cung cấp
-2. ✅ ƯU TIÊN trích dẫn "Câu trả lời" gốc từ nguồn (nếu có)
-3. ✅ Có thể diễn đạt lại cho tự nhiên NHƯNG KHÔNG thay đổi nội dung
-4. ❌ TUYỆT ĐỐI KHÔNG tự suy luận hoặc thêm thông tin không có trong nguồn
-5. ❌ KHÔNG chẩn đoán chắc chắn (dùng "có thể", "khả năng")
-6. ❌ KHÔNG kê đơn thuốc cụ thể
+1. ✅ SỬ DỤNG CHÍNH XÁC thông tin từ [Nguồn] được cung cấp nếu có
+2. ✅ NẾU CÓ NGUỒN: Ưu tiên trích dẫn và bám sát nội dung
+3. ⚠️ NẾU KHÔNG CÓ NGUỒN: Được phép sử dụng kiến thức y khoa chuẩn xác để tư vấn, NHƯNG phải bắt đầu bằng: "Dựa trên kiến thức y khoa tổng quát (không có trong dữ liệu cụ thể)..."
+4. ❌ KHÔNG kê đơn thuốc cụ thể, chỉ đưa ra lời khuyên về nhóm thuốc hoặc hoạt chất
+5. ❌ KHÔNG chẩn đoán khẳng định, luôn khuyên người dùng đi khám bác sĩ
+6. ✅ Luôn giữ thái độ khách quan, khoa học và cảm thông
 
 🤖 AUTONOMOUS DECISION MAKING (QUAN TRỌNG NHẤT):
 Bạn có quyền truy cập vào các công cụ (tools) để CHỦ ĐỘNG hỗ trợ user:
@@ -862,6 +901,9 @@ VÍ DỤ TRẢ LỜI TỐT:
 
 Theo thông tin từ nguồn y tế, tình trạng kém ăn của bé cũng có thể do bé đang mọc răng hoặc do bé đang bệnh. Tuy nhiên, nếu bé vừa sử dụng kháng sinh xong mà vẫn còn sốt, ho và bụng chướng căng, bạn nên đưa bé đến cơ sở y tế gần nhất có chuyên khoa Nhi để thăm khám và làm các xét nghiệm cần thiết nhé."
 """
+        if image_base64:
+             logger.info(f"Image attached. Using Vision capabilities.")
+             system_prompt += "\n7. 🖼️ CÓ HÌNH ẢNH: Hãy phân tích hình ảnh được gửi kèm và đưa ra nhận xét y tế sơ bộ. Luôn cảnh báo đây chỉ là đánh giá dựa trên hình ảnh."
         
         
         # Build user prompt with conversation context
@@ -912,10 +954,25 @@ Hãy trả lời theo đúng quy tắc.""")
         # === TOOL CALLING: Cho phép GPT gọi functions ===
         # GPT sẽ TỰ QUYẾT ĐỊNH khi nào cần gọi tool (ví dụ: tìm bệnh viện)
         
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # User Content (Text + Image if available)
+        user_content = []
+        if image_base64:
+             # Text Prompt
+             user_content.append({"type": "text", "text": user_prompt})
+             # Image
+             user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": image_base64 if image_base64.startswith("data:image") else f"data:image/jpeg;base64,{image_base64}"
+                }
+             })
+             messages.append({"role": "user", "content": user_content})
+        else:
+             messages.append({"role": "user", "content": user_prompt})
+
+
         
         # Gọi GPT lần đầu (có thể trigger tool call)
         response = client.chat.completions.create(

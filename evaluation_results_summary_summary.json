@@ -1,0 +1,15 @@
+{
+  "Precision@1": 0.9,
+  "Recall@1": 0.185,
+  "NDCG@1": 0.9,
+  "Precision@3": 0.9,
+  "Recall@3": 0.5549999999999999,
+  "NDCG@3": 0.9,
+  "Precision@5": 0.8800000000000001,
+  "Recall@5": 0.9,
+  "NDCG@5": 0.9,
+  "MRR": 0.9,
+  "Semantic Similarity": 0.790808641910553,
+  "Entity Accuracy": 0.655,
+  "Avg Response Time (s)": 5.580472922325134
+}

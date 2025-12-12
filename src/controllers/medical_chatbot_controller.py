@@ -7,7 +7,11 @@ from src.services.medical_chatbot_service import (
     combined_search_with_filters,
     generate_natural_response,
     get_or_create_collection,
-    rewrite_query_with_context  # Import hàm rewrite
+    combined_search_with_filters,
+    generate_natural_response,
+    get_or_create_collection,
+    rewrite_query_with_context,  # Import hàm rewrite
+    generate_search_query_from_image # Import image to query
 )
 from src.models.base import db
 from src.models.message import Message
@@ -25,7 +29,8 @@ medical_chatbot_ns = Namespace('medical-chatbot', description='Medical Chatbot o
 chat_request = medical_chatbot_ns.model('MedicalChatRequest', {
     'question': fields.String(required=True, description='User medical question in Vietnamese', example='Triệu chứng của cảm cúm là gì?'),
     'user_id': fields.Integer(description='User ID for chat history', example=1),
-    'conversation_id': fields.Integer(description='Conversation ID to continue chat', example=1)
+    'conversation_id': fields.Integer(description='Conversation ID to continue chat', example=1),
+    'image_base64': fields.String(description='Base64 encoded image string', required=False)
 })
 
 chat_response = medical_chatbot_ns.model('MedicalChatResponse', {
@@ -59,7 +64,8 @@ history_response = medical_chatbot_ns.model('HistoryResponse', {
 class SecureMedicalChat(Resource):
     @medical_chatbot_ns.expect(medical_chatbot_ns.model('SecureChatRequest', {
         'question': fields.String(required=True, description='Câu hỏi y tế'),
-        'conversation_id': fields.Integer(description='ID cuộc trò chuyện (tùy chọn)')
+        'conversation_id': fields.Integer(description='ID cuộc trò chuyện (tùy chọn)'),
+        'image_base64': fields.String(description='Ảnh base64 (tùy chọn)')
     }))
     @medical_chatbot_ns.response(200, 'Success')
     @medical_chatbot_ns.response(401, 'Unauthorized')
@@ -75,9 +81,10 @@ class SecureMedicalChat(Resource):
             data = request.json
             question = data.get('question', '').strip()
             conversation_id = data.get('conversation_id')
+            image_base64 = data.get('image_base64')
             
-            if not question:
-                return {'message': 'Question is required'}, 400
+            if not question and not image_base64:
+                return {'message': 'Question or Image is required'}, 400
             
             # Lấy user_id từ token (an toàn)
             user_id = current_user['user_id']
@@ -118,8 +125,23 @@ class SecureMedicalChat(Resource):
             # RAG pipeline with CACHING
             
             # 1. Rewrite Query if history exists
+            # 1. Determine Search Query (Image vs Text vs Both)
             search_query = question
-            if conversation_id:
+            
+            if image_base64:
+                 # Generate keywords from image
+                 image_keywords = generate_search_query_from_image(image_base64)
+                 if question:
+                     # Combine User Question + Image Keywords
+                     # Example: "What is this?" + "red rash dermatitis"
+                     search_query = f"{question} {image_keywords}"
+                 else:
+                     # Use Image Keywords as the main query
+                     search_query = image_keywords
+            
+            # Rewrite Query if history exists (and no NEW image, or combine logic)
+            # If image provided, we trust the image content + question more than history context for THIS turn
+            if conversation_id and not image_base64:
                  search_query = rewrite_query_with_context(question, conversation.conversation_id)
             
             # 2. Extract Intent from REWRITTEN query
@@ -142,7 +164,8 @@ class SecureMedicalChat(Resource):
                 search_results,
                 extracted_features,
                 conversation_id=conversation.conversation_id,
-                user_name=user_name
+                user_name=user_name,
+                image_base64=image_base64  # Pass image to response generator pass
             )
             answer = response.get('answer')
             response_from_cache = response.get('from_cache', False)
