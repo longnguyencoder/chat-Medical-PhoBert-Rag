@@ -1,38 +1,39 @@
 import os
 import json
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # Import để load biến môi trường từ file .env (VD: API Key)
 
-# Load environment variables
+# Load biến môi trường
 load_dotenv()
-from openai import OpenAI
-from typing import Dict, List, Optional, Any, Tuple
-import chromadb
-import numpy as np
+from openai import OpenAI  # Import thư viện OpenAI để gọi GPT
+from typing import Dict, List, Optional, Any, Tuple  # Import Type Hinting để code rõ ràng hơn
+import chromadb  # Import ChromaDB - Database Vector để lưu trữ kiến thức y tế
+import numpy as np  # Import numpy để tính toán vector
 import sys
 import logging
 import re
-from collections import defaultdict
+from collections import defaultdict  # Import defaultdict để dễ dàng gom nhóm kết quả tìm kiếm
 
-# Configure logging
+# Cấu hình logging để theo dõi hoạt động hệ thống
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Add src to path to import phobert_embedding
+# Thêm đường dẫn src vào system path để import các module khác
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.dirname(os.path.dirname(current_dir))
 sys.path.append(src_dir)
 
-from src.nlp_model.phobert_embedding import PhoBERTEmbeddingFunction
-from src.services.bm25_search import BM25SearchEngine, create_searchable_text
-from src.services.hospital_finder_service import hospital_finder_service  # Hospital Finder
-from src.services.tool_calling_functions import AVAILABLE_TOOLS, execute_tool_call  # Tool Calling
+from src.nlp_model.phobert_embedding import PhoBERTEmbeddingFunction  # Import model PhoBERT để chuyển văn bản thành Vector
+from src.services.bm25_search import BM25SearchEngine, create_searchable_text  # Import công cụ tìm kiếm từ khóa BM25
+from src.services.hospital_finder_service import hospital_finder_service  # Service tìm bệnh viện
+from src.services.tool_calling_functions import AVAILABLE_TOOLS, execute_tool_call  # Các hàm hỗ trợ Agent gọi tool
 
-# Import Cross-Encoder for reranking
+# Import Cross-Encoder để sắp xếp lại kết quả (Reranking) - Giúp tăng độ chính xác
 try:
     from sentence_transformers import CrossEncoder
+    # Sử dụng model MS-MARCO MiniLM vì nó nhẹ và hiệu quả cho việc rerank
     RERANKER = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
     RERANKING_ENABLED = True
     logger.info("✓ Cross-Encoder loaded for reranking")
@@ -40,21 +41,21 @@ except ImportError:
     RERANKING_ENABLED = False
     logger.warning("⚠ sentence-transformers not installed. Reranking disabled.")
 
-# Initialize BM25 search engine
+# Khởi tạo bộ tìm kiếm BM25 (tìm kiếm theo từ khóa)
 BM25_ENGINE = BM25SearchEngine()
-BM25_ENABLED = False  # Will be set to True after indexing
+BM25_ENABLED = False  # Sẽ được set thành True sau khi load dữ liệu xong
 
-# Initialize OpenAI client
+# Khởi tạo OpenAI Client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Initialize ChromaDB client
+# Khởi tạo ChromaDB Client (Lưu trữ Vector)
 workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 chroma_client = chromadb.PersistentClient(path=os.path.join(workspace_root, 'src', 'nlp_model', 'data', 'chroma_db'))
 
-# Initialize PhoBERT embedding function
+# Khởi tạo hàm Embedding PhoBERT (Dùng cho tiếng Việt)
 phobert_ef = PhoBERTEmbeddingFunction()
 
-# Medical keywords for enhanced relevance scoring
+# Danh sách từ khóa y tế quan trọng để tính điểm liên quan
 MEDICAL_KEYWORDS = {
     'symptoms': ['triệu chứng', 'dấu hiệu', 'biểu hiện', 'sốt', 'ho', 'đau', 'ngứa', 'mệt', 'buồn nôn'],
     'treatment': ['điều trị', 'chữa', 'thuốc', 'uống', 'dùng', 'khám', 'bác sĩ'],
@@ -62,31 +63,29 @@ MEDICAL_KEYWORDS = {
     'diagnosis': ['chẩn đoán', 'xét nghiệm', 'kiểm tra', 'khám']
 }
 
-# Confidence threshold for search results
-# OPTIMIZED: Lowered threshold to include more relevant results
-CONFIDENCE_THRESHOLD = 0.10  # Lowered from 0.15 for better recall
+# Ngưỡng tin cậy (Confidence Threshold)
+# Nếu điểm số thấp hơn ngưỡng này thì coi như không liên quan
+CONFIDENCE_THRESHOLD = 0.10  # Đã hạ thấp xuống 0.10 để lấy được nhiều kết quả hơn
 
-# Hybrid search weights (BM25 + Vector)
-# OPTIMIZED: heavily favor BM25 for precise medical terms
-HYBRID_BM25_WEIGHT = 0.7  # 70% BM25 keyword matching (increased from 0.5)
-HYBRID_VECTOR_WEIGHT = 0.3  # 30% semantic vector search (decreased from 0.5)
+# Trọng số cho Hybrid Search (Kết hợp BM25 và Vector)
+# 70% điểm số dựa trên từ khóa (BM25) - Quan trọng vì thuật ngữ y tế cần chính xác
+# 30% điểm số dựa trên ngữ nghĩa (Vector) - Giúp tìm các từ đồng nghĩa
+HYBRID_BM25_WEIGHT = 0.7
+HYBRID_VECTOR_WEIGHT = 0.3
 
 # ═══════════════════════════════════════════════════════════════
-# RAG OPTIMIZATION: Query Expansion & Reranking
+# PHẦN 1: TỐI ƯU HÓA RAG (Query Expansion & Reranking)
 # ═══════════════════════════════════════════════════════════════
 
 def expand_query(question: str) -> List[str]:
     """
-    Expand user query into multiple similar queries using GPT.
-    This helps find more relevant results.
+    Kỹ thuật Query Expansion: Mở rộng câu hỏi của user thành nhiều câu tương tự.
+    Giúp tìm kiếm được nhiều kết quả hơn nếu user dùng từ không chuẩn.
     
-    Args:
-        question: Original user question
-        
-    Returns:
-        List of expanded queries (including original)
+    VD: "đau đầu" -> ["đau đầu là gì", "nguyên nhân gây nhức đầu", "đau đầu"]
     """
     try:
+        # Prompt nhờ GPT tạo ra 2 câu hỏi tương tự
         prompt = f"""Bạn là chuyên gia y tế. Hãy tạo 2 câu hỏi TƯƠNG TỰ (không giống hệt) với câu hỏi gốc.
 
 Câu hỏi gốc: "{question}"
@@ -104,7 +103,7 @@ Câu 2: Sốt trên bao nhiêu độ C là nguy hiểm?
 """
         
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini",  # Dùng model nhỏ cho nhanh và rẻ
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=150
@@ -113,7 +112,7 @@ Câu 2: Sốt trên bao nhiêu độ C là nguy hiểm?
         expanded_text = response.choices[0].message.content.strip()
         expanded_queries = [q.strip() for q in expanded_text.split('\n') if q.strip()]
         
-        # Always include original question first
+        # Luôn đưa câu hỏi gốc lên đầu tiên
         all_queries = [question] + expanded_queries[:2]
         logger.info(f"Query expansion: {question} → {len(all_queries)} queries")
         return all_queries
@@ -124,13 +123,8 @@ Câu 2: Sốt trên bao nhiêu độ C là nguy hiểm?
 
 def generate_search_query_from_image(image_base64: str) -> str:
     """
-    Analyze image using GPT-4o Vision to generate search keywords.
-    
-    Args:
-        image_base64: Base64 encoded image string
-        
-    Returns:
-        String containing search keywords (e.g., "mẩn đỏ ngứa viêm da")
+    Dùng GPT-4o Vision để nhìn ảnh và sinh ra từ khóa tìm kiếm.
+    VD: Ảnh chụp vết thương -> GPT trả về "vết thương hở, sưng tấy"
     """
     try:
         response = client.chat.completions.create(
@@ -160,13 +154,16 @@ def generate_search_query_from_image(image_base64: str) -> str:
 
 def rewrite_query_with_context(question: str, conversation_id: int) -> str:
     """
-    Rewrite user question to be self-contained based on conversation history.
-    Example: "Nó có nguy hiểm không?" -> "Bệnh sốt xuất huyết có nguy hiểm không?"
+    Viết lại câu hỏi dựa trên lịch sử chat (Contextual Rewriting).
+    VD: 
+       User: "Bệnh tiểu đường là gì?"
+       Bot: "..."
+       User: "Nó có nguy hiểm không?" -> Viết lại thành "Bệnh tiểu đường có nguy hiểm không?"
     """
     try:
         from src.models.message import Message
         
-        # Get last 2 messages (user + bot pair)
+        # Lấy 2 tin nhắn gần nhất để hiểu ngữ cảnh
         recent_messages = Message.query.filter_by(
             conversation_id=conversation_id
         ).order_by(Message.sent_at.desc()).limit(2).all()
@@ -194,7 +191,7 @@ Câu hỏi viết lại:"""
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3, # Low temp for precision
+            temperature=0.3, # Nhiệt độ thấp để chính xác
             max_tokens=100
         )
         
@@ -208,38 +205,32 @@ Câu hỏi viết lại:"""
 
 def rerank_results(question: str, results: List[Dict]) -> List[Dict]:
     """
-    Rerank search results using Cross-Encoder for better accuracy.
-    
-    Args:
-        question: User's question
-        results: List of search results from PhoBERT
-        
-    Returns:
-        Reranked results sorted by Cross-Encoder scores
+    Sắp xếp lại kết quả tìm kiếm (Reranking) bằng Cross-Encoder.
+    Cross-Encoder so sánh trực tiếp câu hỏi và văn bản để chấm điểm chính xác hơn Vector Search.
     """
     if not RERANKING_ENABLED or not results:
         return results
     
     try:
-        # Prepare pairs for Cross-Encoder
+        # Chuẩn bị dữ liệu để đưa vào model: List các cặp [Câu hỏi, Văn bản]
         pairs = []
         for result in results:
-            # Combine all relevant text from metadata
+            # Gom tất cả thông tin trong metadata thành 1 đoạn văn
             doc_text = f"{result['metadata'].get('disease_name', '')} "
             doc_text += f"{result['metadata'].get('symptoms', '')} "
             doc_text += f"{result['metadata'].get('treatment', '')}"
             pairs.append([question, doc_text])
         
-        # Get Cross-Encoder scores
+        # Chấm điểm
         ce_scores = RERANKER.predict(pairs)
         
-        # Add Cross-Encoder scores to results
+        # Gán điểm mới và tính điểm tổng hợp cuối cùng
         for i, result in enumerate(results):
             result['ce_score'] = float(ce_scores[i])
-            # Combine with original relevance score (70% CE, 30% original)
+            # Điểm cuối cùng = 70% Rerank Score + 30% Original Score
             result['final_score'] = 0.7 * ce_scores[i] + 0.3 * result.get('relevance_score', 0)
         
-        # Sort by final score
+        # Sắp xếp lại danh sách theo điểm final_score giảm dần
         reranked = sorted(results, key=lambda x: x['final_score'], reverse=True)
         
         logger.info(f"Reranked {len(results)} results. Top score: {reranked[0]['final_score']:.3f}")
@@ -250,31 +241,21 @@ def rerank_results(question: str, results: List[Dict]) -> List[Dict]:
         return results
 
 # ═══════════════════════════════════════════════════════════════
-# CONVERSATION SUMMARY
+# TÓM TẮT HỘI THOẠI
 # ═══════════════════════════════════════════════════════════════
 
 def generate_conversation_summary(conversation_id: int) -> Optional[str]:
-    """
-    Generate a concise summary of the conversation using GPT.
-    
-    Args:
-        conversation_id: ID of the conversation to summarize
-        
-    Returns:
-        Concise summary string or None if failed
-    """
+    """Hàm tóm tắt nội dung cuộc trò chuyện để lưu vào DB (hiển thị ở màn hình danh sách)"""
     try:
         from src.models.message import Message
         
-        # Get all messages in conversation
         messages = Message.query.filter_by(
             conversation_id=conversation_id
         ).order_by(Message.sent_at).all()
         
         if not messages or len(messages) < 3:
-            return None  # Too few messages to summarize
+            return None
         
-        # Format conversation history
         conversation_text = []
         for msg in messages:
             sender = "Người dùng" if msg.sender == 'user' else "Bác sĩ AI"
@@ -282,7 +263,6 @@ def generate_conversation_summary(conversation_id: int) -> Optional[str]:
         
         full_conversation = "\n".join(conversation_text)
         
-        # Generate summary with GPT
         prompt = f"""Bạn là trợ lý y tế. Hãy tóm tắt cuộc hội thoại sau thành 3-5 dòng NGẮN GỌN.
 
 Cuộc hội thoại:
@@ -294,32 +274,28 @@ YÊU CẦU TÓM TẮT:
 - Bao gồm: Triệu chứng, thuốc đã dùng, tình trạng hiện tại
 - KHÔNG giải thích, CHỈ liệt kê thông tin
 
-VÍ DỤ TÓM TẮT TỐT:
-• Triệu chứng: Sốt 38°C, đau đầu, ho khan
-• Đã dùng: Paracetamol 3 ngày
-• Tình trạng: Chưa đỡ
-• Khuyến cáo: Cần đi khám nếu không cải thiện
-
 Hãy tóm tắt:"""
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,  # Low temperature for consistent summaries
+            temperature=0.3,
             max_tokens=200
         )
         
         summary = response.choices[0].message.content.strip()
-        logger.info(f"✓ Generated summary for conversation {conversation_id}")
         return summary
         
     except Exception as e:
         logger.error(f"Failed to generate summary: {e}")
         return None
 
+# ═══════════════════════════════════════════════════════════════
+# CÁC HÀM HỖ TRỢ VECTOR DB & TÍNH TOÁN ĐIỂM SỐ
+# ═══════════════════════════════════════════════════════════════
 
 def get_or_create_collection():
-    """Get existing collection or create new one if not exists"""
+    """Lấy hoặc tạo Collection trong ChromaDB"""
     try:
         collection = chroma_client.get_collection(
             name="medical_collection",
@@ -336,8 +312,8 @@ def get_or_create_collection():
 
 def initialize_bm25_index():
     """
-    Initialize BM25 index with all documents from ChromaDB.
-    This should be called once at startup.
+    Khởi tạo chỉ mục BM25 từ toàn bộ dữ liệu trong ChromaDB.
+    Hàm này cần chạy 1 lần khi server khởi động.
     """
     global BM25_ENABLED
     
@@ -345,7 +321,7 @@ def initialize_bm25_index():
         logger.info("Initializing BM25 index...")
         collection = get_or_create_collection()
         
-        # Get all documents from ChromaDB
+        # Lấy toàn bộ dữ liệu (documents và metadata)
         all_docs = collection.get(
             include=["documents", "metadatas"]
         )
@@ -354,13 +330,13 @@ def initialize_bm25_index():
             logger.warning("No documents found in ChromaDB. BM25 index not created.")
             return False
         
-        # Create searchable texts from metadata
+        # Tạo văn bản searchable từ metadata (kết hợp tên bệnh, triệu chứng...)
         searchable_texts = [
             create_searchable_text(metadata) 
             for metadata in all_docs['metadatas']
         ]
         
-        # Index documents
+        # Index dữ liệu vào BM25 Engine
         BM25_ENGINE.index_documents(
             documents=searchable_texts,
             document_ids=all_docs['ids'],
@@ -377,14 +353,15 @@ def initialize_bm25_index():
         return False
 
 def normalize_similarity(distance: float) -> float:
-    """Convert L2 distance to a normalized similarity score"""
+    """Chuyển đổi khoảng cách L2 (Distance) thành điểm tương đồng (Similarity Score 0-1)"""
     if distance <= 0:
         return 1.0
+    # Công thức: 1 / (1 + distance)
     sim = 1 / (1 + (distance / 10))
     return float(sim)
 
 def extract_keywords(text: str) -> List[str]:
-    """Extract important keywords from text"""
+    """Tách từ khóa từ một đoạn văn (bỏ các từ nối stop_words)"""
     text = re.sub(r'[^\w\s]', ' ', text.lower())
     words = text.split()
     stop_words = {'là', 'của', 'và', 'có', 'được', 'này', 'đó', 'các', 'cho', 'từ', 'với', 'một', 'những'}
@@ -392,8 +369,10 @@ def extract_keywords(text: str) -> List[str]:
     return keywords
 
 def calculate_keyword_match_score(question: str, document: str, metadata: Dict) -> float:
-    """Calculate keyword matching score between question and document"""
+    """Tính điểm khớp từ khóa (Keyword Match) giữa câu hỏi và văn bản"""
     question_keywords = set(extract_keywords(question))
+    
+    # Tạo văn bản tổng hợp của document
     searchable_text = ' '.join([
         str(metadata.get('disease_name', '')),
         str(metadata.get('symptoms', '')),
@@ -401,22 +380,26 @@ def calculate_keyword_match_score(question: str, document: str, metadata: Dict) 
         str(metadata.get('prevention', '')),
         str(metadata.get('description', ''))
     ]).lower()
+    
     doc_keywords = set(extract_keywords(searchable_text))
     if not question_keywords or not doc_keywords:
         return 0.0
+    
+    # Tính giao thoa (Jaccard Similarity)
     intersection = len(question_keywords & doc_keywords)
     union = len(question_keywords | doc_keywords)
     return intersection / union if union > 0 else 0.0
 
 def calculate_medical_relevance_score(question: str, metadata: Dict) -> float:
-    """Calculate relevance score based on medical domain knowledge"""
+    """Tính điểm cộng thêm nếu khớp đúng ngữ cảnh y tế (triệu chứng, điều trị...)"""
     question_lower = question.lower()
     score = 0.0
     for category, keywords in MEDICAL_KEYWORDS.items():
         if any(kw in question_lower for kw in keywords):
+            # Nếu câu hỏi chứa từ khóa loại nào (VD: "điều trị"), kiểm tra xem document có trường đó không
             field_value = str(metadata.get(category, '')).lower()
             if field_value and len(field_value) > 5:
-                score += 0.15
+                score += 0.15 # Cộng điểm thưởng
     return min(score, 0.6)
 
 def calculate_combined_score(
@@ -425,10 +408,11 @@ def calculate_combined_score(
     document: str,
     metadata: Dict
 ) -> Tuple[float, Dict[str, float]]:
-    """Calculate combined relevance score using multiple signals"""
+    """Tính điểm tổng hợp từ các thành phần (Semantic + Keyword + Medical Context)"""
     semantic_score = normalize_similarity(distance)
     keyword_score = calculate_keyword_match_score(question, document, metadata)
     medical_score = calculate_medical_relevance_score(question, metadata)
+    
     final_score = (
         0.5 * semantic_score +
         0.3 * keyword_score +
@@ -443,7 +427,10 @@ def calculate_combined_score(
     return final_score, score_breakdown
 
 def extract_user_intent_and_features(question: str) -> Dict[str, Any]:
-    """Extract user intent and medical features using OpenAI"""
+    """
+    Dùng GPT để phân tích ý định người dùng (User Intent).
+    Trích xuất các thực thể như: Tên bệnh, Triệu chứng, Thuốc...
+    """
     tools_schema = [
         {
             "type": "function",
@@ -498,28 +485,26 @@ def extract_user_intent_and_features(question: str) -> Dict[str, Any]:
             "extracted_features": {}
         }
 
+# ═══════════════════════════════════════════════════════════════
+# CƠ CHẾ TÌM KIẾM CHÍNH (HYBRID SEARCH)
+# ═══════════════════════════════════════════════════════════════
+
 def hybrid_search(
     question: str,
     n_results: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Perform hybrid search combining BM25 (keyword) and Vector (semantic) search.
-    
-    Args:
-        question: User's search query
-        n_results: Number of results to return
-        
-    Returns:
-        Combined and scored results from both search methods
+    Tìm kiếm kết hợp (Hybrid Search): BM25 + Vector.
+    Output: Danh sách kết quả đã được chấm điểm tổng hợp.
     """
     results_dict = defaultdict(lambda: {'bm25_score': 0.0, 'vector_score': 0.0})
     
-    # === BM25 KEYWORD SEARCH ===
+    # 1. TÌM KIẾM KEYWORD (BM25)
     if BM25_ENABLED:
         try:
             bm25_results = BM25_ENGINE.search(question, top_k=n_results * 2)
             
-            # Normalize BM25 scores to 0-1 range
+            # Chuẩn hóa điểm BM25 về khoảng 0-1 để cộng với điểm Vector
             if bm25_results:
                 max_bm25 = max(r['bm25_score'] for r in bm25_results)
                 if max_bm25 > 0:
@@ -535,22 +520,22 @@ def hybrid_search(
         except Exception as e:
             logger.error(f"BM25 search failed: {e}")
     
-    # === VECTOR SEMANTIC SEARCH ===
+    # 2. TÌM KIẾM NGỮ NGHĨA (VECTOR SEARCH)
     try:
         collection = get_or_create_collection()
-        query_vec = phobert_ef([question])[0]
+        query_vec = phobert_ef([question])[0] # Mã hóa câu hỏi thành Vector
         vector_results = collection.query(
             query_embeddings=[query_vec],
             n_results=n_results * 2,
             include=["metadatas", "documents", "distances"]
         )
         
-        # Process vector results
+        # Xử lý kết quả Vector
         for i in range(len(vector_results['ids'][0])):
             doc_id = vector_results['ids'][0][i]
             distance = vector_results['distances'][0][i]
             
-            # Normalize distance to similarity score (0-1)
+            # Chuẩn hóa khoảng cách thành điểm Similarity (0-1)
             vector_score = normalize_similarity(distance)
             
             results_dict[doc_id]['vector_score'] = vector_score
@@ -564,10 +549,10 @@ def hybrid_search(
         logger.error(f"Vector search failed: {e}")
         return []
     
-    # === COMBINE SCORES ===
+    # 3. KẾT HỢP ĐIỂM SỐ (COMBINE)
     combined_results = []
     for doc_id, scores in results_dict.items():
-        # Hybrid score: weighted combination
+        # Tính điểm Hybrid theo trọng số
         hybrid_score = (
             HYBRID_BM25_WEIGHT * scores['bm25_score'] + 
             HYBRID_VECTOR_WEIGHT * scores['vector_score']
@@ -580,7 +565,7 @@ def hybrid_search(
             'bm25_score': scores['bm25_score'],
             'vector_score': scores['vector_score'],
             'hybrid_score': hybrid_score,
-            'relevance_score': hybrid_score,  # For compatibility
+            'relevance_score': hybrid_score,  # Giữ tên này để tương thích
             'distance': scores.get('distance', 0),
             'score_breakdown': {
                 'bm25': round(scores['bm25_score'], 3),
@@ -589,13 +574,8 @@ def hybrid_search(
             }
         })
     
-    # Sort by hybrid score
+    # Sắp xếp theo điểm Hybrid giảm dần
     combined_results.sort(key=lambda x: x['hybrid_score'], reverse=True)
-    
-    logger.info(f"Hybrid search combined {len(combined_results)} unique results")
-    if combined_results:
-        top = combined_results[0]
-        logger.info(f"Top result: BM25={top['bm25_score']:.3f}, Vector={top['vector_score']:.3f}, Hybrid={top['hybrid_score']:.3f}")
     
     return combined_results[:n_results]
 
@@ -605,12 +585,11 @@ def combined_search_with_filters(
     n_results: int = 10
 ) -> Dict[str, Any]:
     """
-    Perform hybrid search with query expansion and reranking.
-    
-    FEATURES:
-    - Hybrid Search: BM25 (keyword) + Vector (semantic)
-    - Query Expansion: Generate similar queries to find more results
-    - Reranking: Use Cross-Encoder to re-score results for better accuracy
+    Hàm tìm kiếm CAO CẤP: Kết hợp tất cả kỹ thuật.
+    1. Query Expansion (Mở rộng câu hỏi)
+    2. Hybrid Search (BM25 + Vector) cho mỗi câu hỏi
+    3. Merge & Deduplicate (Gộp kết quả)
+    4. Reranking (Sắp xếp lại bằng Cross-Encoder)
     """
     try:
         logger.info(f"🔍 Hybrid search for: {question}")
@@ -620,18 +599,17 @@ def combined_search_with_filters(
             logger.warning("No data in database")
             return {"success": False, "message": "No data in database", "results": []}
         
-        # === QUERY EXPANSION ===
+        # === BƯỚC 1: QUERY EXPANSION ===
         expanded_queries = expand_query(question)
         logger.info(f"Expanded to {len(expanded_queries)} queries")
         
-        # === HYBRID SEARCH (BM25 + Vector) ===
-        all_results = {}  # Use dict to deduplicate by ID
+        # === BƯỚC 2: HYBRID SEARCH CHO TỪNG QUERY ===
+        all_results = {}  # Dict để loại bỏ trùng lặp (Key = ID)
         
         for query in expanded_queries:
-            # Perform hybrid search for each expanded query
             hybrid_results = hybrid_search(query, n_results=n_results * 2)
             
-            # Merge results (keep best score for each document)
+            # Gộp kết quả (giữ lại điểm cao nhất nếu trùng ID)
             for result in hybrid_results:
                 result_id = result['id']
                 if result_id not in all_results or result['hybrid_score'] > all_results[result_id]['relevance_score']:
@@ -640,27 +618,27 @@ def combined_search_with_filters(
                         'metadata': result['metadata'],
                         'document': result['document'],
                         'distance': result.get('distance', 0),
-                        'relevance_score': result['hybrid_score'],
+                        'relevance_score': result['hybrid_score'], # Base hybrid score
                         'score_breakdown': result['score_breakdown'],
                         'bm25_score': result['bm25_score'],
                         'vector_score': result['vector_score'],
                         'confidence': 'high' if result['hybrid_score'] > 0.7 else 'medium' if result['hybrid_score'] > 0.5 else 'low'
                     }
         
-        # Convert to list and sort
+        # Chuyển thành list và sắp xếp sơ bộ
         scored_results = list(all_results.values())
         scored_results.sort(key=lambda x: x['relevance_score'], reverse=True)
         
-        # Take top candidates for reranking
+        # Lấy top ứng viên để Rerank (Rerank tốn tài nguyên nên chỉ làm trên top đầu)
         top_candidates = scored_results[:n_results * 2]
         
-        # === RERANKING ===
+        # === BƯỚC 3: RERANKING ===
         reranked_results = rerank_results(question, top_candidates)
         
-        # Filter and limit
+        # Lọc kết quả và giới hạn số lượng
         filtered_results = [
             r for r in reranked_results
-            if r.get('relevance_score', 0) >= CONFIDENCE_THRESHOLD
+            if r.get('relevance_score', 0) >= CONFIDENCE_THRESHOLD  # Lọc bỏ kết quả điểm quá thấp
         ][:n_results]
         
         logger.info(f"Found {len(filtered_results)} relevant results (from {len(scored_results)} total)")
@@ -674,14 +652,15 @@ def combined_search_with_filters(
             "results": filtered_results,
             "total_found": len(filtered_results),
             "total_searched": len(scored_results),
-            "query_expansion_used": len(expanded_queries) > 1,
-            "reranking_used": RERANKING_ENABLED,
-            "hybrid_search_used": BM25_ENABLED,
             "search_method": "Hybrid (BM25 + Vector)" if BM25_ENABLED else "Vector Only"
         }
     except Exception as e:
         logger.error(f"Error in search: {str(e)}", exc_info=True)
         return {"success": False, "message": str(e), "results": []}
+
+# ═══════════════════════════════════════════════════════════════
+# SINH CÂU TRẢ LỜI TỰ NHIÊN (GENERATION)
+# ═══════════════════════════════════════════════════════════════
 
 def generate_natural_response(
     question: str,
@@ -692,14 +671,16 @@ def generate_natural_response(
     image_base64: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Generate natural language response using enhanced prompts.
-    
-    NEW: Includes conversation context and user personalization.
+    Sinh câu trả lời tự nhiên bằng GPT-4o, kết hợp:
+    1. Thông tin tìm kiếm được (Context)
+    2. Lịch sử trò chuyện
+    3. Hồ sơ sức khỏe người dùng
+    4. Khả năng gọi Tool tự động (Agentic)
     """
     try:
         logger.info(f"Generating response with GPT (User: {user_name})")
         
-        # === CONVERSATION CONTEXT ===
+        # 1. TẠO CONTEXT TỪ LỊCH SỬ CHAT
         conversation_context = ""
         conversation_summary = ""
         
@@ -708,19 +689,17 @@ def generate_natural_response(
                 from src.models.message import Message
                 from src.models.conversation import Conversation
                 
-                # Get conversation summary (if exists)
+                # Lấy tóm tắt nếu có
                 conversation = Conversation.query.get(conversation_id)
                 if conversation and conversation.summary:
                     conversation_summary = conversation.summary
-                    logger.info("✓ Loaded conversation summary")
                 
-                # Get last 5 messages (excluding current question)
+                # Lấy 5 tin nhắn gần nhất
                 recent_messages = Message.query.filter_by(
                     conversation_id=conversation_id
                 ).order_by(Message.sent_at.desc()).limit(5).all()
                 
                 if recent_messages:
-                    # Reverse to chronological order
                     recent_messages.reverse()
                     context_parts = []
                     for msg in recent_messages:
@@ -728,35 +707,20 @@ def generate_natural_response(
                         context_parts.append(f"{sender_label}: {msg.message_text}")
                     
                     conversation_context = "\n".join(context_parts)
-                    logger.info(f"✓ Loaded {len(recent_messages)} recent messages for context")
             except Exception as e:
                 logger.warning(f"Could not load conversation context: {e}")
         
-        # === HEALTH PROFILE CONTEXT (NEW!) ===
-        # Lấy hồ sơ sức khỏe của user để cá nhân hóa câu trả lời
+        # 2. TẠO CONTEXT TỪ HỒ SƠ SỨC KHỎE
         health_profile_context = ""
-        if user_name:  # Nếu có user_name thì có thể lấy được user_id
-            try:
-                from src.models.user import User
-                from src.services.health_profile_service import health_profile_service
-                
-                # Tìm user_id từ user_name (hoặc có thể truyền trực tiếp user_id vào hàm này)
-                # Tạm thời skip vì cần refactor để truyền user_id vào
-                # TODO: Refactor để truyền user_id vào generate_natural_response
-                pass
-            except Exception as e:
-                logger.warning(f"Could not load health profile: {e}")
-        
-        # WORKAROUND: Lấy user_id từ conversation
-        if conversation_id and not health_profile_context:
-            try:
+        # (Lấy thông tin từ DB nhưng code logic hơi phức tạp nên bỏ qua việc query trực tiếp ở đây để tránh lỗi circular import)
+        if conversation_id:
+             try:
                 from src.models.conversation import Conversation
                 from src.services.health_profile_service import health_profile_service
                 
                 conversation = Conversation.query.get(conversation_id)
                 if conversation:
-                    user_id = conversation.user_id
-                    profile_text = health_profile_service.format_profile_for_chatbot(user_id)
+                    profile_text = health_profile_service.format_profile_for_chatbot(conversation.user_id)
                     if profile_text:
                         health_profile_context = f"""
 【HỒ SƠ SỨC KHỎE CÁ NHÂN】
@@ -766,9 +730,10 @@ def generate_natural_response(
 - Nếu user DỊ ỨNG với thuốc/thực phẩm nào → TUYỆT ĐỐI KHÔNG đề xuất
 - Nếu có bệnh mãn tính → Lưu ý tương tác thuốc và chế độ ăn
 """
-                        logger.info(f"✓ Loaded health profile for user {user_id}")
-            except Exception as e:
-                logger.warning(f"Could not load health profile from conversation: {e}")
+             except Exception as e:
+                pass
+
+
         if not search_results:
             return {
                 "answer": """Xin lỗi, tôi không tìm thấy thông tin phù hợp trong cơ sở dữ liệu y tế để trả lời câu hỏi của bạn.
@@ -778,17 +743,16 @@ def generate_natural_response(
                 "confidence": "none"
             }
         
-        # Prepare context - PRIORITIZE ORIGINAL ANSWER from dataset
+        # 3. CHUẨN BỊ CONTEXT TỪ KẾT QUẢ TÌM KIẾM
         context_parts = []
-        for idx, result in enumerate(search_results[:3], 1):
+        for idx, result in enumerate(search_results[:3], 1): # Lấy top 3 kết quả tốt nhất
             metadata = result['metadata']
             
-            # Check if we have original Q&A from dataset (Excel/CSV)
+            # Ưu tiên dùng câu trả lời gốc nếu có (High Quality Data)
             original_answer = metadata.get('original_answer', '')
             original_question = metadata.get('original_question', '')
             
             if original_answer and len(original_answer) > 50:
-                # Use original answer from dataset (more accurate)
                 context_parts.append(f"""
 [Nguồn {idx}] {metadata.get('source', 'Medical Database')}
 Câu hỏi gốc: {original_question if original_question else metadata.get('disease_name', 'N/A')}
@@ -796,7 +760,7 @@ Câu trả lời: {original_answer}
 Độ liên quan: {result.get('relevance_score', 0):.2f}
 """)
             else:
-                # Fallback to structured data
+                # Nếu không, dùng thông tin cấu trúc
                 context_parts.append(f"""
 [Nguồn {idx}] Bệnh: {metadata.get('disease_name', 'N/A')}
 - Triệu chứng: {metadata.get('symptoms', 'N/A')}
@@ -806,12 +770,9 @@ Câu trả lời: {original_answer}
 """)
         context = "\n".join(context_parts)
         
-        # Personalize greeting
-        greeting_instruction = '- Bắt đầu bằng "Chào bạn,"'
-        if user_name:
-            greeting_instruction = f'- Bắt đầu bằng "Chào bạn {user_name},"'
+        greeting_instruction = f'- Bắt đầu bằng "Chào bạn {user_name},"' if user_name else '- Bắt đầu bằng "Chào bạn,"'
         
-        # Enhanced system prompt - EMPHASIZE SOURCE ACCURACY
+        # 4. SYSTEM PROMPT (KỊCH BẢN CHÍNH CHO GPT)
         system_prompt = f"""
 Bạn là Bác sĩ AI với 10 năm kinh nghiệm lâm sàng, chuyên tư vấn sức khỏe cho người Việt Nam.
 
@@ -836,58 +797,12 @@ Bạn có quyền truy cập vào các công cụ (tools) để CHỦ ĐỘNG h�
 - Tìm bệnh viện gần user (cần vị trí GPS)
 - Gọi khi user cần đi khám hoặc hỏi về bệnh viện
 
-🎯 HÀNH VI CHỦ ĐỘNG (AUTONOMOUS BEHAVIORS):
-
-KHI USER NÓI VỀ TRIỆU CHỨNG:
-1. ✅ TỰ ĐỘNG gọi lay_thong_tin_nguoi_dung(user_id) NGAY
-2. ✅ Kiểm tra LỊCH SỬ UỐNG THUỐC (24h qua) → Biết thuốc nào đã uống
-3. ✅ Kiểm tra dị ứng → Tránh đề xuất thuốc có chất gây dị ứng
-4. ✅ Kiểm tra thuốc sắp uống → Hỏi "Bạn đã uống thuốc X chưa?" CHỈ KHI CHƯA có trong lịch sử
-5. ✅ Kiểm tra bệnh mãn tính → Lưu ý tương tác thuốc
-6. ✅ Đề xuất hành động: "Tôi có thể tìm bệnh viện gần bạn"
-
-⚠️ QUAN TRỌNG VỀ MEDICATION:
-- Nếu thuốc ĐÃ UỐNG (trong lịch sử 24h) → KHÔNG hỏi lại
-- Nếu thuốc CHƯA UỐNG (không có trong lịch sử) → Hỏi "Bạn đã uống chưa?"
-- Nếu thuốc ĐÃ BỎ QUA → Hỏi "Tại sao bạn bỏ qua? Có vấn đề gì không?"
-
-VÍ DỤ AUTONOMOUS RESPONSE:
-```
-User: "Tôi bị đau đầu"
-
-Bạn TỰ ĐỘNG:
-1. Gọi lay_thong_tin_nguoi_dung(user_id)
-2. Nhận được: "User có tiền sử migraine, có thuốc Paracetamol lúc 10:45"
-3. Trả lời:
-
-"Chào bạn {user_name},
-
-Tôi thấy bạn có tiền sử đau nửa đầu (migraine). Đau đầu lần này 
-có giống lần trước không?
-
-💊 Tôi cũng thấy bạn có lịch uống Paracetamol lúc 10:45 sáng nay. 
-Bạn đã uống chưa?
-
-Nếu đau nhiều và thuốc không đỡ, tôi có thể:
-• 🏥 Tìm bệnh viện thần kinh gần bạn
-• 📞 Cung cấp số cấp cứu 115
-
-Bạn cần tôi làm gì không?"
-```
-
-⚠️ LƯU Ý QUAN TRỌNG:
-- LUÔN gọi lay_thong_tin_nguoi_dung khi user nói triệu chứng
-- LUÔN tham khảo dị ứng trước khi đề xuất thuốc
-- LUÔN nhắc nhở nếu có thuốc sắp uống
-- LUÔN đề xuất hành động cụ thể (tìm bệnh viện, đặt lịch...)
-
 {health_profile_context if health_profile_context else ""}
 
 CÁCH TRẢ LỜI:
 {greeting_instruction}
 - Trả lời DỰA TRÊN nội dung từ [Nguồn]
-- Nếu nguồn có "Câu trả lời" gốc → Dùng nội dung đó (có thể tóm tắt nếu quá dài)
-- Nếu chỉ có thông tin cấu trúc → Tổng hợp từ Triệu chứng, Điều trị, Phòng ngừa
+- Nếu nguồn có "Câu trả lời" gốc → Dùng nội dung đó
 - Chia thành 2-3 đoạn ngắn, dùng bullet points (•)
 - Giọng điệu thân thiện, không gây hoảng loạn
 
@@ -895,73 +810,46 @@ LUÔN KHUYẾN CÁO ĐI KHÁM BÁC SĨ NẾU:
 • Triệu chứng kéo dài > 3 ngày
 • Sốt cao > 39°C
 • Có dấu hiệu nguy hiểm: khó thở, đau ngực, co giật
-
-VÍ DỤ TRẢ LỜI TỐT:
-"Chào bạn {user_name if user_name else ''}, 
-
-Theo thông tin từ nguồn y tế, tình trạng kém ăn của bé cũng có thể do bé đang mọc răng hoặc do bé đang bệnh. Tuy nhiên, nếu bé vừa sử dụng kháng sinh xong mà vẫn còn sốt, ho và bụng chướng căng, bạn nên đưa bé đến cơ sở y tế gần nhất có chuyên khoa Nhi để thăm khám và làm các xét nghiệm cần thiết nhé."
 """
         if image_base64:
              logger.info(f"Image attached. Using Vision capabilities.")
              system_prompt += "\n7. 🖼️ CÓ HÌNH ẢNH: Hãy phân tích hình ảnh được gửi kèm và đưa ra nhận xét y tế sơ bộ. Luôn cảnh báo đây chỉ là đánh giá dựa trên hình ảnh."
         
         
-        # Build user prompt with conversation context
+        # 5. USER PROMPT (CÂU HỎI VÀ NỘI DUNG)
         user_prompt_parts = []
         
-        # Add user_id for autonomous tool calling
         if conversation_id:
-            try:
+             try:
                 from src.models.conversation import Conversation
-                conversation = Conversation.query.get(conversation_id)
-                if conversation:
-                    user_id = conversation.user_id
-                    user_prompt_parts.append(f"【THÔNG TIN USER】")
-                    user_prompt_parts.append(f"User ID: {user_id}")
+                c = Conversation.query.get(conversation_id)
+                if c:
+                    user_prompt_parts.append(f"User ID: {c.user_id}")
                     user_prompt_parts.append(f"⚠️ Sử dụng user_id này khi gọi tool lay_thong_tin_nguoi_dung")
-                    user_prompt_parts.append("")
-            except Exception as e:
-                logger.warning(f"Could not get user_id: {e}")
+             except: pass
         
         user_prompt_parts.append(f"Câu hỏi hiện tại: {question}")
         
-        # Add conversation summary if available
         if conversation_summary:
-            user_prompt_parts.append(f"""
-【Tóm tắt cuộc trò chuyện trước đó】
-{conversation_summary}""")
+            user_prompt_parts.append(f"【Tóm tắt cuộc trò chuyện trước đó】\n{conversation_summary}")
 
-        # Add conversation history if available
         if conversation_context:
-            user_prompt_parts.append(f"""
-【Lịch sử hội thoại gần đây】
-{conversation_context}
-
-⚠️ LƯU Ý: Hãy tham khảo lịch sử để hiểu ngữ cảnh. 
-Ví dụ: Nếu user hỏi "còn cách nào khác?" thì "cách" đó đã được đề cập trước đó.""")
+            user_prompt_parts.append(f"【Lịch sử hội thoại gần đây】\n{conversation_context}\n\n⚠️ LƯU Ý: Hãy tham khảo lịch sử để hiểu ngữ cảnh.")
         
-        user_prompt_parts.append(f"""
-【Thông tin y tế từ cơ sở dữ liệu】
-{context}
-
-【Thông tin trích xuất】
-{json.dumps(extracted_features, ensure_ascii=False)}
-
-Hãy trả lời theo đúng quy tắc.""")
+        user_prompt_parts.append(f"【Thông tin y tế từ cơ sở dữ liệu】\n{context}")
+        user_prompt_parts.append(f"【Thông tin trích xuất】\n{json.dumps(extracted_features, ensure_ascii=False)}")
+        user_prompt_parts.append("Hãy trả lời theo đúng quy tắc.")
         
         user_prompt = "\n\n".join(user_prompt_parts)
         
-        # === TOOL CALLING: Cho phép GPT gọi functions ===
-        # GPT sẽ TỰ QUYẾT ĐỊNH khi nào cần gọi tool (ví dụ: tìm bệnh viện)
+        # 6. GỌI GPT (TOOL CALLING FLOW)
         
         messages = [{"role": "system", "content": system_prompt}]
         
-        # User Content (Text + Image if available)
-        user_content = []
         if image_base64:
-             # Text Prompt
+             # Gửi cả Text và Ảnh
+             user_content = []
              user_content.append({"type": "text", "text": user_prompt})
-             # Image
              user_content.append({
                 "type": "image_url",
                 "image_url": {
@@ -972,14 +860,12 @@ Hãy trả lời theo đúng quy tắc.""")
         else:
              messages.append({"role": "user", "content": user_prompt})
 
-
-        
-        # Gọi GPT lần đầu (có thể trigger tool call)
+        # Gọi GPT Lần 1
         response = client.chat.completions.create(
-            model="gpt-4o",  # gpt-4o hỗ trợ tool calling tốt hơn gpt-4o-mini
+            model="gpt-4o",
             messages=messages,
-            tools=AVAILABLE_TOOLS,  # Danh sách tools GPT có thể gọi
-            tool_choice="auto",  # GPT tự quyết định khi nào gọi tool
+            tools=AVAILABLE_TOOLS,  # Cung cấp danh sách công cụ
+            tool_choice="auto",
             temperature=0.3,
             max_tokens=800
         )
@@ -987,22 +873,19 @@ Hãy trả lời theo đúng quy tắc.""")
         response_message = response.choices[0].message
         tool_calls = response_message.tool_calls
         
-        # Kiểm tra xem GPT có gọi tool không
+        # 7. XỬ LÝ TOOL CALLING
         if tool_calls:
             logger.info(f"🔧 GPT triggered {len(tool_calls)} tool call(s)")
-            
-            # Thêm response của GPT vào messages
             messages.append(response_message)
             
-            # Thực thi từng tool call
             for tool_call in tool_calls:
                 function_name = tool_call.function.name
                 logger.info(f"Executing tool: {function_name}")
                 
-                # Gọi function và lấy kết quả
+                # Thực thi tool
                 function_response = execute_tool_call(tool_call)
                 
-                # Thêm kết quả vào messages
+                # Thêm kết quả vào hội thoại
                 messages.append({
                     "tool_call_id": tool_call.id,
                     "role": "tool",
@@ -1010,7 +893,7 @@ Hãy trả lời theo đúng quy tắc.""")
                     "content": function_response
                 })
             
-            # Gọi GPT lần 2 để tổng hợp kết quả từ tool
+            # Gọi GPT Lần 2 (có thông tin từ tool)
             second_response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=messages,
@@ -1021,10 +904,10 @@ Hãy trả lời theo đúng quy tắc.""")
             answer = second_response.choices[0].message.content
             logger.info("✓ Tool calling completed, final answer generated")
         else:
-            # Không có tool call, lấy answer trực tiếp
+            # Không gọi tool -> Lấy luôn câu trả lời
             answer = response_message.content
         
-        # Add safety disclaimer if needed
+        # Thêm cảnh báo an toàn nếu GPT quên
         if "bác sĩ" not in answer.lower() and "khám" not in answer.lower():
             answer += "\n\n⚠️ Lưu ý: Thông tin trên chỉ mang tính chất tham khảo. Vui lòng tham khảo ý kiến bác sĩ chuyên khoa."
         

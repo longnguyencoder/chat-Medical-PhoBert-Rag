@@ -1,143 +1,140 @@
 """
 Medication Controller
 =====================
-REST API endpoints để quản lý lịch uống thuốc và lịch sử tuân thủ.
+REST API endpoints để quản lý lịch uống thuốc và theo dõi việc tuân thủ uống thuốc.
+Đây là tính năng cốt lõi giúp nhắc nhở bệnh nhân uống thuốc đúng giờ.
 
-Endpoints:
-- POST /api/medication/schedules - Tạo lịch mới
-- GET /api/medication/schedules - Lấy danh sách lịch
-- GET /api/medication/schedules/{id} - Lấy chi tiết 1 lịch
-- PUT /api/medication/schedules/{id} - Cập nhật lịch
-- DELETE /api/medication/schedules/{id} - Xóa lịch
-- POST /api/medication/logs - Ghi nhận đã uống/bỏ qua
-- GET /api/medication/logs - Lấy lịch sử
-- GET /api/medication/logs/stats - Thống kê tuân thủ
+Endpoints chính:
+1. Quản lý Lịch (Schedule): Tạo, sửa, xóa lịch uống thuốc (VD: Paracetamol, 8:00 sáng hàng ngày).
+2. Quản lý Nhật ký (Logs): Ghi nhận kết quả uống (Đã uống, Bỏ qua) cho từng lần nhắc.
+3. Thống kê (Stats): Xem tỷ lệ tuân thủ để bác sĩ/người thân theo dõi.
 
-Tất cả endpoints đều yêu cầu JWT authentication.
+Toàn bộ API đều được bảo vệ bằng JWT Token.
 """
 
 from flask import request
-from flask_restx import Namespace, Resource, fields
+from flask_restx import Namespace, Resource, fields  # Thư viện hỗ trợ tạo API chuẩn RESTful và Swagger Document
 import logging
-from src.services import medication_service
-from src.utils.auth_middleware import token_required
-from src.models.base import db
+from src.services import medication_service  # Service xử lý logic nghiệp vụ
+from src.utils.auth_middleware import token_required  # Middleware kiểm tra đăng nhập
+from src.models.base import db  # Database session
 
 logger = logging.getLogger(__name__)
 
-# Tạo namespace cho Medication API
+# Tạo Namespace 'medication' -> đường dẫn gốc sẽ là /api/medication
 medication_ns = Namespace(
     'medication',
     description='Medication Reminder - Quản lý lịch uống thuốc và nhắc nhở'
 )
 
 # ============================================================================
-# API MODELS (Định nghĩa cấu trúc request/response cho Swagger UI)
+# API MODELS (Định nghĩa cấu trúc dữ liệu cho Swagger UI & Validation)
 # ============================================================================
 
-# Model cho request tạo/cập nhật lịch
+# Model Input: Dữ liệu user gửi lên khi tạo/sửa lịch uống thuốc
 medication_schedule_input = medication_ns.model('MedicationScheduleInput', {
     'medication_name': fields.String(
         required=True,
-        description='Tên thuốc',
+        description='Tên thuốc (bắt buộc)',
         example='Paracetamol'
     ),
     'dosage': fields.String(
-        description='Liều lượng',
+        description='Liều lượng (VD: 1 viên, 500mg)',
         example='500mg'
     ),
     'frequency': fields.String(
-        description='Tần suất: daily, twice_daily, three_times_daily, weekly, custom',
+        description='Tần suất lặp lại (daily, weekly...) - Mặc định là daily',
         example='daily',
         default='daily'
     ),
     'time_of_day': fields.List(
         fields.String,
         required=True,
-        description='Thời gian trong ngày (HH:MM)',
+        description='Danh sách thời gian uống trong ngày (định dạng HH:MM)',
         example=['08:00', '20:00']
     ),
     'start_date': fields.String(
-        description='Ngày bắt đầu (YYYY-MM-DD)',
+        description='Ngày bắt đầu uống (YYYY-MM-DD)',
         example='2025-12-10'
     ),
     'end_date': fields.String(
-        description='Ngày kết thúc (YYYY-MM-DD, nullable)',
+        description='Ngày kết thúc đợt thuốc (YYYY-MM-DD, có thể để trống nếu uống dài hạn)',
         example='2025-12-31'
     ),
     'notes': fields.String(
-        description='Ghi chú',
+        description='Ghi chú thêm (VD: Uống sau ăn)',
         example='Uống sau ăn'
     )
 })
 
-# Model cho response lịch uống thuốc
+# Model Output: Dữ liệu lịch uống thuốc trả về cho Client
 medication_schedule_output = medication_ns.model('MedicationScheduleOutput', {
-    'schedule_id': fields.Integer(description='ID lịch'),
-    'user_id': fields.Integer(description='ID người dùng'),
+    'schedule_id': fields.Integer(description='ID duy nhất của lịch'),
+    'user_id': fields.Integer(description='ID người dùng sở hữu'),
     'medication_name': fields.String(description='Tên thuốc'),
     'dosage': fields.String(description='Liều lượng'),
     'frequency': fields.String(description='Tần suất'),
-    'time_of_day': fields.List(fields.String, description='Thời gian trong ngày'),
+    'time_of_day': fields.List(fields.String, description='Các giờ uống trong ngày'),
     'start_date': fields.String(description='Ngày bắt đầu'),
     'end_date': fields.String(description='Ngày kết thúc'),
     'notes': fields.String(description='Ghi chú'),
-    'is_active': fields.Boolean(description='Trạng thái kích hoạt'),
+    'is_active': fields.Boolean(description='Trạng thái kích hoạt (True=Đang dùng, False=Đã dừng/Xóa)'),
     'created_at': fields.String(description='Thời gian tạo'),
     'updated_at': fields.String(description='Thời gian cập nhật')
 })
 
-# Model cho request ghi nhận log
+# Model Input: Dữ liệu khi user đánh dấu đã uống thuốc (Check-in)
 medication_log_input = medication_ns.model('MedicationLogInput', {
     'log_id': fields.Integer(
         required=True,
-        description='ID log cần cập nhật',
+        description='ID của lần nhắc thuốc cụ thể (Log ID)',
         example=1
     ),
     'status': fields.String(
         required=True,
-        description='Trạng thái: taken hoặc skipped',
+        description='Trạng thái cập nhật: `taken` (đã uống) hoặc `skipped` (bỏ qua)',
         example='taken',
         enum=['taken', 'skipped']
     ),
     'note': fields.String(
-        description='Ghi chú',
+        description='Ghi chú lý do (VD: Quên mang thuốc, Tác dụng phụ...)',
         example='Uống muộn 30 phút'
     )
 })
 
-# Model cho response log
+# Model Output: Dữ liệu chi tiết một lần nhắc thuốc
 medication_log_output = medication_ns.model('MedicationLogOutput', {
     'log_id': fields.Integer(description='ID log'),
-    'schedule_id': fields.Integer(description='ID lịch'),
+    'schedule_id': fields.Integer(description='ID lịch gốc'),
     'user_id': fields.Integer(description='ID người dùng'),
-    'scheduled_time': fields.String(description='Thời gian dự kiến'),
-    'actual_time': fields.String(description='Thời gian thực tế'),
-    'status': fields.String(description='Trạng thái: pending, taken, skipped'),
-    'note': fields.String(description='Ghi chú'),
-    'is_overdue': fields.Boolean(description='Có quá hạn không'),
-    'created_at': fields.String(description='Thời gian tạo'),
-    'updated_at': fields.String(description='Thời gian cập nhật')
+    'scheduled_time': fields.String(description='Thời gian dự kiến uống (theo lịch)'),
+    'actual_time': fields.String(description='Thời gian thực tế user bấm xác nhận'),
+    'status': fields.String(description='Trạng thái: pending (chờ), taken (đã uống), skipped (bỏ qua)'),
+    'note': fields.String(description='Ghi chú của người dùng'),
+    'is_overdue': fields.Boolean(description='Cờ đánh dấu đã quá giờ uống chưa'),
+    'created_at': fields.String(description='Thời gian tạo bản ghi'),
+    'updated_at': fields.String(description='Thời gian cập nhật bản ghi')
 })
 
-# Model cho thống kê
+# Model Output: Thống kê tuân thủ điều trị
 compliance_stats_output = medication_ns.model('ComplianceStatsOutput', {
-    'total': fields.Integer(description='Tổng số lần'),
-    'taken': fields.Integer(description='Số lần đã uống'),
-    'skipped': fields.Integer(description='Số lần bỏ qua'),
-    'pending': fields.Integer(description='Số lần đang chờ'),
-    'compliance_rate': fields.Float(description='Tỷ lệ tuân thủ (%)')
+    'total': fields.Integer(description='Tổng số lần phải uống'),
+    'taken': fields.Integer(description='Số lần đã uống đúng hạn/muộn'),
+    'skipped': fields.Integer(description='Số lần chủ động bỏ qua'),
+    'pending': fields.Integer(description='Số lần đang chờ (chưa đến giờ hoặc chưa confirm)'),
+    'compliance_rate': fields.Float(description='Tỷ lệ tuân thủ (%) - Công thức: Taken / (Taken + Skipped)')
 })
 
 
 # ============================================================================
-# API ENDPOINTS - MEDICATION SCHEDULES
+# API ENDPOINTS - MEDICATION SCHEDULES (QUẢN LÝ LỊCH)
 # ============================================================================
 
 @medication_ns.route('/schedules')
 class MedicationScheduleList(Resource):
     """
     Endpoint quản lý danh sách lịch uống thuốc.
+    URI: /api/medication/schedules
     """
     
     @medication_ns.response(200, 'Success', [medication_schedule_output])
@@ -146,15 +143,15 @@ class MedicationScheduleList(Resource):
     @token_required
     def get(self, current_user):
         """
-        Lấy danh sách lịch uống thuốc của user hiện tại.
-        
-        Returns:
-            List[MedicationSchedule]
+        Lấy danh sách TOÀN BỘ lịch uống thuốc của user hiện tại.
+        Bao gồm cả lịch đang active và inactive (tùy logic service).
         """
         try:
             user_id = current_user['user_id']
+            # Gọi service lấy danh sách
             schedules = medication_service.get_schedules_by_user(user_id)
             
+            # Convert sang dict để trả về JSON
             return {
                 'message': 'Success',
                 'count': len(schedules),
@@ -165,9 +162,9 @@ class MedicationScheduleList(Resource):
             logger.error(f"Error getting medication schedules: {e}", exc_info=True)
             return {'message': f'Internal server error: {str(e)}'}, 500
     
-    @medication_ns.expect(medication_schedule_input)
+    @medication_ns.expect(medication_schedule_input)  # Validate body
     @medication_ns.response(201, 'Created', medication_schedule_output)
-    @medication_ns.response(400, 'Bad Request')
+    @medication_ns.response(400, 'Bad Request - Thiếu trường bắt buộc')
     @medication_ns.response(401, 'Unauthorized')
     @medication_ns.doc(security='Bearer')
     @token_required
@@ -175,10 +172,9 @@ class MedicationScheduleList(Resource):
         """
         Tạo lịch uống thuốc mới.
         
-        Lịch sẽ tự động tạo logs cho 7 ngày tới.
-        
-        Returns:
-            MedicationSchedule vừa tạo
+        Logic quan trọng:
+        - Khi tạo lịch, hệ thống sẽ TỰ ĐỘNG tạo ra các Log nhắc nhở (MedicationLog) cho 7 ngày tới.
+        - Giúp App không cần tính toán local, chỉ cần query Log là biết hôm nay uống gì.
         """
         try:
             user_id = current_user['user_id']
@@ -187,11 +183,11 @@ class MedicationScheduleList(Resource):
             if not data:
                 return {'message': 'Request body is required'}, 400
             
-            # Validate required fields
+            # Kiểm tra trường bắt buộc
             if 'medication_name' not in data or 'time_of_day' not in data:
                 return {'message': 'medication_name and time_of_day are required'}, 400
             
-            # Tạo schedule
+            # Gọi service để tạo lịch + sinh logs tự động
             schedule = medication_service.create_schedule(user_id, data)
             
             return {
@@ -212,7 +208,8 @@ class MedicationScheduleList(Resource):
 @medication_ns.route('/schedules/<int:schedule_id>')
 class MedicationScheduleDetail(Resource):
     """
-    Endpoint quản lý chi tiết 1 lịch uống thuốc.
+    Endpoint quản lý chi tiết 1 lịch uống thuốc cụ thể.
+    URI: /api/medication/schedules/{id}
     """
     
     @medication_ns.response(200, 'Success', medication_schedule_output)
@@ -221,17 +218,10 @@ class MedicationScheduleDetail(Resource):
     @medication_ns.doc(security='Bearer')
     @token_required
     def get(self, current_user, schedule_id):
-        """
-        Lấy chi tiết 1 lịch uống thuốc.
-        
-        Args:
-            schedule_id: ID lịch
-        
-        Returns:
-            MedicationSchedule
-        """
+        """Lấy chi tiết 1 lịch uống thuốc."""
         try:
             user_id = current_user['user_id']
+            # Lấy chi tiết và kiểm tra quyền sở hữu
             schedule = medication_service.get_schedule_by_id(schedule_id, user_id)
             
             if not schedule:
@@ -254,13 +244,9 @@ class MedicationScheduleDetail(Resource):
         """
         Cập nhật lịch uống thuốc.
         
-        Nếu thay đổi time_of_day, logs trong tương lai sẽ được regenerate.
-        
-        Args:
-            schedule_id: ID lịch
-        
-        Returns:
-            MedicationSchedule đã cập nhật
+        Lưu ý: Nếu thay đổi giờ uống (time_of_day), hệ thống sẽ phải:
+        1. Xóa các Logs chưa uống (pending) trong tương lai.
+        2. Tạo lại Logs mới theo giờ mới.
         """
         try:
             user_id = current_user['user_id']
@@ -269,7 +255,7 @@ class MedicationScheduleDetail(Resource):
             if not data:
                 return {'message': 'Request body is required'}, 400
             
-            # Cập nhật schedule
+            # Update schedule
             schedule = medication_service.update_schedule(schedule_id, user_id, data)
             
             if not schedule:
@@ -285,7 +271,7 @@ class MedicationScheduleDetail(Resource):
             return {'message': str(e)}, 400
             
         except Exception as e:
-            # ADDED LOGGING FOR DEBUGGING
+            # Ghi log chi tiết để debug
             logger.error(f"❌ Error updating schedule {schedule_id} for user {user_id}")
             logger.error(f"Request data: {data}")
             import traceback
@@ -301,13 +287,8 @@ class MedicationScheduleDetail(Resource):
     @token_required
     def delete(self, current_user, schedule_id):
         """
-        Xóa lịch uống thuốc (soft delete).
-        
-        Args:
-            schedule_id: ID lịch
-        
-        Returns:
-            Thông báo xóa thành công
+        Xóa lịch uống thuốc.
+        Thực tế là "Soft Delete" (đánh dấu is_active = False) để giữ lại lịch sử.
         """
         try:
             user_id = current_user['user_id']
@@ -325,13 +306,14 @@ class MedicationScheduleDetail(Resource):
 
 
 # ============================================================================
-# API ENDPOINTS - MEDICATION LOGS
+# API ENDPOINTS - MEDICATION LOGS (NHẬT KÝ UỐNG THUỐC)
 # ============================================================================
 
 @medication_ns.route('/logs')
 class MedicationLogList(Resource):
     """
-    Endpoint quản lý lịch sử uống thuốc.
+    Endpoint quản lý lịch sử/nhật ký uống thuốc.
+    URI: /api/medication/logs
     """
     
     @medication_ns.response(200, 'Success', [medication_log_output])
@@ -342,14 +324,11 @@ class MedicationLogList(Resource):
     @token_required
     def get(self, current_user):
         """
-        Lấy lịch sử uống thuốc của user.
+        Lấy danh sách các lần nhắc uống thuốc (Logs).
+        Thường dùng để hiển thị Calendar hoặc danh sách "Hôm nay".
         
-        Query params:
-        - start_date: Ngày bắt đầu (YYYY-MM-DD)
-        - end_date: Ngày kết thúc (YYYY-MM-DD)
-        
-        Returns:
-            List[MedicationLog]
+        Query Params:
+        - start_date, end_date: Dùng để lọc theo khoảng thời gian.
         """
         try:
             user_id = current_user['user_id']
@@ -377,15 +356,11 @@ class MedicationLogList(Resource):
     @token_required
     def post(self, current_user):
         """
-        Ghi nhận đã uống hoặc bỏ qua thuốc.
+        API quan trọng: Đánh dấu đã uống thuốc (Check-in).
         
-        Body:
-        - log_id: ID log cần cập nhật
-        - status: 'taken' hoặc 'skipped'
-        - note: Ghi chú (optional)
-        
-        Returns:
-            MedicationLog đã cập nhật
+        Client gửi lên:
+        - log_id: ID của lần nhắc đó.
+        - status: 'taken' (đã uống) hoặc 'skipped' (bỏ qua).
         """
         try:
             user_id = current_user['user_id']
@@ -394,9 +369,8 @@ class MedicationLogList(Resource):
             # Debug logging
             logger.info(f"📥 Received medication log request from user {user_id}")
             logger.info(f"📦 Request data: {data}")
-            logger.info(f"📦 Request data type: {type(data)}")
             
-            # Support both camelCase (from Flutter/Dart) and snake_case
+            # Hỗ trợ cả log_id (snake_case) và logId (camelCase từ Flutter)
             log_id = data.get('log_id') or data.get('logId')
             status = data.get('status')
             note = data.get('note')
@@ -414,9 +388,8 @@ class MedicationLogList(Resource):
                 return {'message': 'status must be either "taken" or "skipped"'}, 400
             
             logger.info(f"✅ Processing: log_id={log_id}, status={status}, note={note}")
-
             
-            # Ghi nhận log
+            # Gọi service ghi nhận trạng thái
             if status == 'taken':
                 log = medication_service.record_medication_taken(log_id, user_id, note)
             else:
@@ -439,7 +412,8 @@ class MedicationLogList(Resource):
 @medication_ns.route('/logs/stats')
 class MedicationLogStats(Resource):
     """
-    Endpoint thống kê tuân thủ uống thuốc.
+    Endpoint thống kê tuân thủ.
+    URI: /api/medication/logs/stats
     """
     
     @medication_ns.response(200, 'Success', compliance_stats_output)
@@ -449,13 +423,7 @@ class MedicationLogStats(Resource):
     @token_required
     def get(self, current_user):
         """
-        Lấy thống kê tuân thủ uống thuốc.
-        
-        Query params:
-        - days: Số ngày gần đây (mặc định 30)
-        
-        Returns:
-            Thống kê: total, taken, skipped, pending, compliance_rate
+        Tính toán tỷ lệ tuân thủ trong X ngày qua.
         """
         try:
             user_id = current_user['user_id']
@@ -477,7 +445,8 @@ class MedicationLogStats(Resource):
 @medication_ns.route('/logs/upcoming')
 class MedicationUpcoming(Resource):
     """
-    Endpoint lấy danh sách thuốc sắp uống.
+    Endpoint tiện ích: Lấy danh sách thuốc SẮP PHẢI UỐNG.
+    Dùng cho Feature Widget hoặc thông báo nhanh ngoài trang chủ.
     """
     
     @medication_ns.response(200, 'Success')
@@ -487,13 +456,7 @@ class MedicationUpcoming(Resource):
     @token_required
     def get(self, current_user):
         """
-        Lấy danh sách thuốc sắp uống trong X giờ tới.
-        
-        Query params:
-        - hours: Số giờ tới (mặc định 24)
-        
-        Returns:
-            List các lượt uống thuốc sắp tới, sắp xếp theo thời gian
+        Lấy danh sách các liều thuốc cần uống trong vòng X giờ tới.
         """
         try:
             user_id = current_user['user_id']

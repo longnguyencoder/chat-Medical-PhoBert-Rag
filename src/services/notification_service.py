@@ -1,35 +1,90 @@
+"""
+Notification Service
+====================
+Service layer xử lý logic gửi và quản lý thông báo.
+
+Chức năng:
+1. Tạo thông báo (Nhắc thuốc, Nhắc lịch trình...).
+2. Quản lý trạng thái thông báo (Đã đọc, Đã xóa).
+3. Gửi thông báo qua Email (tích hợp email_service).
+4. Truy vấn danh sách thông báo cho User.
+"""
+
 from datetime import datetime, timedelta
+from typing import List, Dict, Any, Tuple
 from src.models.notification import Notification
 from src.models.itinerary import Itinerary
 from src.models.user import User
 from src.models.base import db
 from src.services.email_service import send_notification_email
-from typing import List, Dict, Any
 
-def create_itinerary_reminder_notification(itinerary_id: int) -> tuple[bool, str]:
+# ============================================================================
+# CREATION LOGIC (TẠO THÔNG BÁO)
+# ============================================================================
+
+def create_medication_reminder_notification(
+    user_id: int, 
+    medication_name: str, 
+    time: str
+) -> Tuple[bool, str]:
     """
-    Create a reminder notification for an itinerary (1 day before)
+    [NEW] Tạo thông báo nhắc uống thuốc.
     
     Args:
-        itinerary_id (int): ID of the itinerary
-        
+        user_id: ID người nhận
+        medication_name: Tên thuốc
+        time: Giờ uống (VD: 08:00)
+    
     Returns:
-        tuple: (success: bool, message: str)
+        tuple (success, message)
     """
     try:
-        # Get itinerary details
+        # Tạo thông báo mới
+        notification = Notification(
+            user_id=user_id,
+            title=f"Nhắc nhở uống thuốc: {medication_name}",
+            message=f"Chào bạn, đã đến giờ uống thuốc {medication_name} ({time}). Hãy uống đúng giờ nhé!",
+            notification_type='medication_reminder',
+            scheduled_for=datetime.utcnow() # Gửi ngay (hoặc logic schedule tùy chỉnh)
+        )
+        
+        db.session.add(notification)
+        db.session.commit()
+        
+        # Có thể gọi hàm send_notification ở đây nếu muốn gửi email ngay
+        # send_notification(notification)
+        
+        return True, "Medication reminder created successfully"
+    except Exception as e:
+        db.session.rollback()
+        return False, str(e)
+
+
+def create_itinerary_reminder_notification(itinerary_id: int) -> Tuple[bool, str]:
+    """
+    [LEGACY] Tạo thông báo nhắc nhở lịch trình (từ dự án Chatbot Travel cũ).
+    Vẫn giữ lại để tham khảo hoặc hỗ trợ tính năng liên quan đến lịch khám bệnh sau này.
+    
+    Args:
+        itinerary_id: ID lịch trình
+        
+    Returns:
+        tuple (success, message)
+    """
+    try:
+        # Lấy thông tin lịch trình
         itinerary = Itinerary.query.get(itinerary_id)
         if not itinerary:
             return False, f"Itinerary with ID {itinerary_id} not found"
         
-        # Calculate when to send the notification (1 day before the itinerary date)
+        # Tính thời gian nhắc: 1 ngày trước khi đi
         notification_time = datetime.combine(itinerary.selected_date, datetime.min.time()) - timedelta(days=1)
         
-        # Check if notification time is in the future
+        # Kiểm tra thời gian có hợp lệ không
         if notification_time <= datetime.utcnow():
             return False, "Cannot create reminder for past or current date"
         
-        # Check if notification already exists
+        # Kiểm tra xem đã có thông báo chưa (tránh spam)
         existing_notification = Notification.query.filter_by(
             itinerary_id=itinerary_id,
             notification_type='itinerary_reminder',
@@ -39,7 +94,7 @@ def create_itinerary_reminder_notification(itinerary_id: int) -> tuple[bool, str
         if existing_notification:
             return False, "Reminder notification already exists for this itinerary"
         
-        # Create notification
+        # Tạo thông báo
         notification = Notification(
             user_id=itinerary.user_id,
             itinerary_id=itinerary_id,
@@ -59,37 +114,41 @@ def create_itinerary_reminder_notification(itinerary_id: int) -> tuple[bool, str
         db.session.rollback()
         return False, str(e)
 
+
+# ============================================================================
+# SENDING LOGIC (GỬI THÔNG BÁO)
+# ============================================================================
+
 def get_pending_notifications() -> List[Notification]:
     """
-    Get all notifications that are due to be sent
-    
-    Returns:
-        List[Notification]: List of pending notifications
+    Lấy danh sách các thông báo đang chờ gửi (scheduled_for <= now, chưa gửi).
+    Hàm này thường được Scheduler gọi định kỳ.
     """
     now = datetime.utcnow()
     return Notification.query.filter(
         Notification.scheduled_for <= now,
-        Notification.sent_at.is_(None),
+        Notification.sent_at.is_(None),  # Chưa có thời gian gửi -> Chưa gửi
         Notification.is_deleted == False
     ).all()
 
+
 def send_notification(notification: Notification) -> bool:
     """
-    Send a notification to the user
+    Thực hiện gửi thông báo (qua Email).
     
     Args:
-        notification (Notification): The notification to send
+        notification: Object Notification cần gửi
         
     Returns:
-        bool: True if sent successfully, False otherwise
+        bool: True nếu gửi thành công
     """
     try:
-        # Get user details
+        # Lấy thông tin user để biết email
         user = User.query.get(notification.user_id)
         if not user:
             return False
         
-        # Send email notification
+        # Gọi Email Service
         success = send_notification_email(
             user.email,
             notification.title,
@@ -98,7 +157,7 @@ def send_notification(notification: Notification) -> bool:
         )
         
         if success:
-            # Mark as sent
+            # Cập nhật thời gian đã gửi
             notification.sent_at = datetime.utcnow()
             db.session.commit()
             return True
@@ -109,16 +168,15 @@ def send_notification(notification: Notification) -> bool:
         print(f"Error sending notification {notification.id}: {e}")
         return False
 
-def get_user_notifications(user_id: int, limit: int = 50) -> tuple[bool, List[Dict[str, Any]] | str]:
+
+# ============================================================================
+# USER INTERACTION (QUẢN LÝ CỦA USER)
+# ============================================================================
+
+def get_user_notifications(user_id: int, limit: int = 50) -> Tuple[bool, List[Dict[str, Any]] | str]:
     """
-    Get all notifications for a user
-    
-    Args:
-        user_id (int): ID of the user
-        limit (int): Maximum number of notifications to return
-        
-    Returns:
-        tuple: (success: bool, result: List[Dict] or str)
+    Lấy danh sách thông báo của user.
+    Hỗ trợ phân trang đơn giản bằng limit.
     """
     try:
         notifications = Notification.query.filter_by(
@@ -126,28 +184,22 @@ def get_user_notifications(user_id: int, limit: int = 50) -> tuple[bool, List[Di
             is_deleted=False
         ).order_by(Notification.created_at.desc()).limit(limit).all()
         
+        # Convert sang Dictionary
         result = [notification.to_dict() for notification in notifications]
         return True, result
         
     except Exception as e:
         return False, str(e)
 
-def mark_notification_as_read(notification_id: int, user_id: int) -> tuple[bool, str]:
-    """
-    Mark a notification as read
-    
-    Args:
-        notification_id (int): ID of the notification
-        user_id (int): ID of the user (for authorization)
-        
-    Returns:
-        tuple: (success: bool, message: str)
-    """
+
+def mark_notification_as_read(notification_id: int, user_id: int) -> Tuple[bool, str]:
+    """Đánh dấu đã đọc."""
     try:
         notification = Notification.query.get(notification_id)
         if not notification:
             return False, "Notification not found"
         
+        # Check quyền sở hữu
         if notification.user_id != user_id:
             return False, "Not authorized to modify this notification"
         
@@ -160,17 +212,9 @@ def mark_notification_as_read(notification_id: int, user_id: int) -> tuple[bool,
         db.session.rollback()
         return False, str(e)
 
-def delete_notification(notification_id: int, user_id: int) -> tuple[bool, str]:
-    """
-    Soft delete a notification
-    
-    Args:
-        notification_id (int): ID of the notification
-        user_id (int): ID of the user (for authorization)
-        
-    Returns:
-        tuple: (success: bool, message: str)
-    """
+
+def delete_notification(notification_id: int, user_id: int) -> Tuple[bool, str]:
+    """Xóa thông báo (Soft Delete)."""
     try:
         notification = Notification.query.get(notification_id)
         if not notification:
@@ -186,4 +230,4 @@ def delete_notification(notification_id: int, user_id: int) -> tuple[bool, str]:
         
     except Exception as e:
         db.session.rollback()
-        return False, str(e) 
+        return False, str(e)

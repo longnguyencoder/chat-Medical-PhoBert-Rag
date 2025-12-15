@@ -1,12 +1,13 @@
 """
 Health Profile Service
 ======================
-Service layer xử lý logic nghiệp vụ cho Health Profile.
+Service layer xử lý logic nghiệp vụ cho Health Profile (Hồ sơ sức khỏe).
+Tầng này nằm giữa Controller (API) và Model (Database).
 
-Chức năng:
-- Validate dữ liệu trước khi lưu
-- Xử lý JSON serialization cho allergies, conditions, medications
-- Format dữ liệu để đưa vào chatbot prompt
+Chức năng chính:
+1. Validate dữ liệu đầu vào (kiểm tra ngày sinh, chiều cao, cân nặng hợp lệ).
+2. Xử lý chuyển đổi kiểu dữ liệu (Serialization/Deserialization) cho các trường list như allergies, medications vì DB lưu dưới dạng JSON string.
+3. Cung cấp hàm format dữ liệu để Chatbot dễ dàng sử dụng.
 """
 
 import json
@@ -14,61 +15,66 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional, List
 from src.models.base import db
-from src.models.health_profile import HealthProfile
+from src.models.health_profile import HealthProfile  # Model SQLAlchemy
 
 logger = logging.getLogger(__name__)
 
 
 class HealthProfileService:
     """
-    Service xử lý các thao tác liên quan đến Health Profile.
+    Class chứa các static methods để tương tác với hồ sơ sức khỏe.
+    Dùng static method để không cần khởi tạo instance mỗi lần dùng.
     """
     
     @staticmethod
     def get_profile(user_id: int) -> Optional[HealthProfile]:
         """
-        Lấy hồ sơ sức khỏe của user.
+        Lấy hồ sơ sức khỏe của một user cụ thể.
         
         Args:
-            user_id: ID của user
+            user_id: ID của user cần lấy hồ sơ
             
         Returns:
-            HealthProfile object hoặc None nếu chưa có
+            HealthProfile object: Nếu tìm thấy
+            None: Nếu user chưa có hồ sơ
         """
+        # Query trực tiếp từ bảng HealthProfile
         return HealthProfile.query.filter_by(user_id=user_id).first()
     
     @staticmethod
     def create_or_update_profile(user_id: int, data: Dict) -> HealthProfile:
         """
         Tạo mới hoặc cập nhật hồ sơ sức khỏe.
+        Hàm này xử lý chi tiết validate và convert dữ liệu.
         
         Args:
-            user_id: ID của user
-            data: Dictionary chứa thông tin hồ sơ
+            user_id: ID người dùng
+            data: Dictionary chứa data từ request body
             
         Returns:
-            HealthProfile object đã được lưu
+            HealthProfile object đã lưu DB
             
         Raises:
-            ValueError: Nếu dữ liệu không hợp lệ
+            ValueError: Nếu dữ liệu không hợp lệ (ngày sai format, số âm...)
         """
-        # Kiểm tra xem đã có profile chưa
+        # 1. Tìm xem hồ sơ đã tồn tại chưa
         profile = HealthProfile.query.filter_by(user_id=user_id).first()
         
         if not profile:
-            # Tạo mới
+            # Nếu chưa có -> Khởi tạo mới
             profile = HealthProfile(user_id=user_id)
             db.session.add(profile)
             logger.info(f"Creating new health profile for user {user_id}")
         else:
+            # Nếu có rồi -> Chỉ update
             logger.info(f"Updating health profile for user {user_id}")
         
-        # === CẬP NHẬT CÁC TRƯỜNG ===
+        # 2. CẬP NHẬT TỪNG TRƯỜNG DỮ LIỆU (Có validation)
         
-        # Ngày sinh
+        # --- Ngày sinh (date_of_birth) ---
         if 'date_of_birth' in data and data['date_of_birth']:
             try:
-                # Chuyển string thành date object
+                # Nếu là string 'YYYY-MM-DD', parse thành object date
                 if isinstance(data['date_of_birth'], str):
                     profile.date_of_birth = datetime.strptime(
                         data['date_of_birth'], '%Y-%m-%d'
@@ -78,41 +84,50 @@ class HealthProfileService:
             except ValueError as e:
                 raise ValueError(f"Invalid date format. Use YYYY-MM-DD: {e}")
         
-        # Giới tính
+        # --- Giới tính (gender) ---
         if 'gender' in data:
             gender = data['gender']
+            # Kiểm tra giá trị hợp lệ
             if gender and gender not in ['Male', 'Female', 'Other']:
                 raise ValueError("Gender must be: Male, Female, or Other")
             profile.gender = gender
         
-        # Nhóm máu
+        # --- Nhóm máu (blood_type) ---
         if 'blood_type' in data:
             profile.blood_type = data['blood_type']
         
-        # Chiều cao
+        # --- Chiều cao (height) ---
         if 'height' in data and data['height']:
-            height = float(data['height'])
-            if height <= 0 or height > 300:  # Validate reasonable range
-                raise ValueError("Height must be between 0 and 300 cm")
-            profile.height = height
+            try:
+                height = float(data['height'])
+                if height <= 0 or height > 300:  # Giới hạn hợp lý: 0-3m
+                    raise ValueError("Height must be between 0 and 300 cm")
+                profile.height = height
+            except ValueError:
+                 raise ValueError("Height must be a number")
         
-        # Cân nặng
+        # --- Cân nặng (weight) ---
         if 'weight' in data and data['weight']:
-            weight = float(data['weight'])
-            if weight <= 0 or weight > 500:  # Validate reasonable range
-                raise ValueError("Weight must be between 0 and 500 kg")
-            profile.weight = weight
+            try:
+                weight = float(data['weight'])
+                if weight <= 0 or weight > 500:  # Giới hạn hợp lý: 0-500kg
+                    raise ValueError("Weight must be between 0 and 500 kg")
+                profile.weight = weight
+            except ValueError:
+                 raise ValueError("Weight must be a number")
         
-        # === XỬ LÝ CÁC TRƯỜNG JSON ===
+        # 3. XỬ LÝ CÁC TRƯỜNG JSON (LIST -> STRING)
+        # Database relation SQL thường lưu list dưới dạng JSON string hoặc bảng phụ.
+        # Ở đây dùng JSON string cho đơn giản.
         
-        # Dị ứng
+        # --- Dị ứng (allergies) ---
         if 'allergies' in data:
             allergies = data['allergies']
             if isinstance(allergies, list):
-                # Chuyển list thành JSON string
+                # Chuyển List Python thành chuỗi JSON (VD: ['A', 'B'] -> '["A", "B"]')
                 profile.allergies = json.dumps(allergies, ensure_ascii=False)
             elif isinstance(allergies, str):
-                # Nếu đã là string, validate JSON
+                # Nếu client gửi string, thử parse xem có đúng chuẩn JSON không
                 try:
                     json.loads(allergies)
                     profile.allergies = allergies
@@ -121,7 +136,7 @@ class HealthProfileService:
             elif allergies is None:
                 profile.allergies = None
         
-        # Bệnh mãn tính
+        # --- Bệnh mãn tính (chronic_conditions) ---
         if 'chronic_conditions' in data:
             conditions = data['chronic_conditions']
             if isinstance(conditions, list):
@@ -135,7 +150,7 @@ class HealthProfileService:
             elif conditions is None:
                 profile.chronic_conditions = None
         
-        # Thuốc đang dùng
+        # --- Thuốc đang dùng (medications) ---
         if 'medications' in data:
             medications = data['medications']
             if isinstance(medications, list):
@@ -149,14 +164,14 @@ class HealthProfileService:
             elif medications is None:
                 profile.medications = None
         
-        # Tiền sử gia đình
+        # --- Tiền sử gia đình (family_history) ---
         if 'family_history' in data:
             profile.family_history = data['family_history']
         
-        # Cập nhật timestamp
+        # Cập nhật thời gian sửa đổi
         profile.updated_at = datetime.utcnow()
         
-        # Lưu vào database
+        # 4. LƯU VÀO DATABASE
         db.session.commit()
         
         logger.info(f"Health profile saved for user {user_id}")
@@ -165,13 +180,11 @@ class HealthProfileService:
     @staticmethod
     def delete_profile(user_id: int) -> bool:
         """
-        Xóa hồ sơ sức khỏe của user.
+        Xóa hồ sơ sức khỏe.
         
-        Args:
-            user_id: ID của user
-            
         Returns:
-            True nếu xóa thành công, False nếu không tìm thấy
+            True: Xóa thành công
+            False: Không tìm thấy hồ sơ
         """
         profile = HealthProfile.query.filter_by(user_id=user_id).first()
         if not profile:
@@ -185,39 +198,27 @@ class HealthProfileService:
     @staticmethod
     def format_profile_for_chatbot(user_id: int) -> Optional[str]:
         """
-        Lấy và format hồ sơ sức khỏe để đưa vào prompt của chatbot.
+        Tạo chuỗi tóm tắt hồ sơ để gán vào System Prompt của Chatbot.
+        Giúp Chatbot hiểu ngữ cảnh sức khỏe của user.
         
-        Args:
-            user_id: ID của user
-            
-        Returns:
-            String chứa thông tin hồ sơ, hoặc None nếu chưa có
-            
-        Example:
-            >>> HealthProfileService.format_profile_for_chatbot(1)
-            "Tuổi: 30 | Giới tính: Nam | ⚠️ DỊ ỨNG: Penicillin, Peanuts | Bệnh mãn tính: Diabetes Type 2"
+        VD Output: "Tuổi: 30 | Giới tính: Nam | ⚠️ DỊ ỨNG: Penicillin"
         """
         profile = HealthProfile.query.filter_by(user_id=user_id).first()
         if not profile:
             return None
         
+        # Gọi phương thức format của Model (đã định nghĩa trong models/health_profile.py)
         return profile.format_for_chatbot()
     
     @staticmethod
     def validate_allergies(allergies: List[str]) -> bool:
         """
-        Kiểm tra danh sách dị ứng có hợp lệ không.
-        
-        Args:
-            allergies: Danh sách dị ứng
-            
-        Returns:
-            True nếu hợp lệ
+        Helper method: Validate danh sách dị ứng.
+        Đảm bảo input là list các string không rỗng.
         """
         if not isinstance(allergies, list):
             return False
         
-        # Kiểm tra mỗi item phải là string
         for item in allergies:
             if not isinstance(item, str) or len(item.strip()) == 0:
                 return False
@@ -225,5 +226,5 @@ class HealthProfileService:
         return True
 
 
-# Singleton instance
+# Tạo singleton instance để dùng ở Controller
 health_profile_service = HealthProfileService()

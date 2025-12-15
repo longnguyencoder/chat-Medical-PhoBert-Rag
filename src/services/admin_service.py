@@ -1,24 +1,45 @@
+"""
+Admin Service
+=============
+Service layer xử lý logic thống kê cho Admin Dashboard.
+Tương tác trực tiếp với Database để query số liệu.
+
+Chức năng:
+1. Thống kê User (Verified/Unverified).
+2. Thống kê Hoạt động Chat (Conversations, Messages).
+"""
+
 from src.models.user import User
 from src.models.conversation import Conversation
 from src.models.message import Message
 from src.models.base import db
 from sqlalchemy import func
+import logging
 
-def get_total_users():
+logger = logging.getLogger(__name__)
+
+def get_total_users() -> dict:
     """
-    Get total number of users and breakdown by verification status
+    Đếm số lượng người dùng trong hệ thống.
     
     Returns:
-        dict: Statistics about users including total, verified, and unverified counts
+        dict: {
+            'success': bool,
+            'data': {
+                'total_users': int,
+                'verified_users': int,
+                'unverified_users': int
+            }
+        }
     """
     try:
-        # Count total users
+        # Tổng số user
         total_users = User.query.count()
         
-        # Count verified users
+        # Số user đã xác thực email
         verified_users = User.query.filter_by(is_verified=True).count()
         
-        # Count unverified users
+        # Số user chưa xác thực
         unverified_users = User.query.filter_by(is_verified=False).count()
         
         return {
@@ -31,27 +52,35 @@ def get_total_users():
             'message': 'User statistics retrieved successfully'
         }
     except Exception as e:
+        logger.error(f"Error getting user stats: {e}")
         return {
             'success': False,
             'message': f'Error retrieving user statistics: {str(e)}'
         }
 
-def get_conversation_stats():
+
+def get_conversation_stats() -> dict:
     """
-    Get statistics about conversations
+    Thống kê hoạt động Chatbot.
     
     Returns:
-        dict: Statistics about conversations
+        dict: {
+            'total_conversations': int,
+            'total_messages': int,
+            'avg_messages_per_conversation': float
+        }
     """
     try:
-        # Count total conversations
+        # Đếm tổng số hội thoại
         total_conversations = Conversation.query.count()
         
-        # Count total messages
+        # Đếm tổng số tin nhắn
         total_messages = Message.query.count()
         
-        # Calculate average messages per conversation
-        avg_messages = round(total_messages / total_conversations, 2) if total_conversations > 0 else 0
+        # Tính trung bình tin nhắn mỗi hội thoại
+        avg_messages = 0
+        if total_conversations > 0:
+            avg_messages = round(total_messages / total_conversations, 2)
         
         return {
             'success': True,
@@ -63,19 +92,20 @@ def get_conversation_stats():
             'message': 'Conversation statistics retrieved successfully'
         }
     except Exception as e:
+        logger.error(f"Error getting conversation stats: {e}")
         return {
             'success': False,
             'message': f'Error retrieving conversation statistics: {str(e)}'
         }
 
-def get_all_stats():
+
+def get_all_stats() -> dict:
     """
-    Get all statistics (users + conversations)
-    
-    Returns:
-        dict: Combined statistics
+    Tổng hợp tất cả thống kê (User + Chat).
+    Giúp Client chỉ cần gọi 1 API để lấy full data Dashboard.
     """
     try:
+        # Gọi 2 hàm con
         user_stats = get_total_users()
         conversation_stats = get_conversation_stats()
         
@@ -91,7 +121,7 @@ def get_all_stats():
         else:
             return {
                 'success': False,
-                'message': 'Error retrieving statistics'
+                'message': 'Error retrieving statistics (Partial failure)'
             }
     except Exception as e:
         return {

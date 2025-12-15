@@ -1,13 +1,19 @@
 """
 Medication Service
 ==================
-Business logic cho tính năng nhắc nhở uống thuốc.
+Business Logic Layer xử lý toàn bộ logic liên quan đến nhắc nhở uống thuốc.
 
-Chức năng:
-- Quản lý lịch uống thuốc (CRUD)
-- Tự động tạo logs cho các lần uống thuốc
-- Ghi nhận tuân thủ (đã uống/bỏ qua)
-- Tính toán thống kê tuân thủ
+Chức năng chính:
+1. Quản lý Lịch (CRUD): Tạo lịch, sửa lịch, xóa lịch.
+2. Sinh Log tự động (`_generate_logs_for_schedule`):
+   - Khi tạo lịch, hệ thống tự tính toán các mốc thời gian (VD: 8:00, 20:00) cho 7 ngày tới.
+   - Lưu trước vào bảng `MedicationLog` với trạng thái `pending`.
+3. Cập nhật trạng thái (`record_medication_taken/skipped`): Khi user check-in.
+4. Thống kê tuân thủ (`get_compliance_stats`): Tính % uống đúng giờ.
+
+Tại sao cần sinh Log trước?
+- Để App Mobile có thể query danh sách "Hôm nay phải uống gì" dễ dàng mà không cần thuật toán phức tạp ở Client.
+- Để hệ thống scheduler có thể quét DB và gửi thông báo Notification dễ dàng.
 """
 
 from datetime import datetime, timedelta, time
@@ -18,54 +24,54 @@ from src.models.medication_schedule import MedicationSchedule
 from src.models.medication_log import MedicationLog
 from src.models.user import User
 
-# Múi giờ Việt Nam
+# Múi giờ Việt Nam - Quan trọng để tính ngày giờ nhắc thuốc chính xác
 VIETNAM_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
 
+# ============================================================================
+# SCHEDULE MANAGEMENT (QUẢN LÝ LỊCH)
+# ============================================================================
+
 def create_schedule(user_id: int, data: dict) -> MedicationSchedule:
     """
-    Tạo lịch uống thuốc mới và tự động tạo logs cho 7 ngày tới.
+    Tạo một lịch uống thuốc mới.
+    Đồng thời tự động kích hoạt tiến trình tạo Logs nhắc nhở cho tương lai.
     
     Args:
-        user_id: ID người dùng
-        data: Dictionary chứa thông tin lịch
-            - medication_name (str): Tên thuốc
-            - dosage (str, optional): Liều lượng
-            - frequency (str): Tần suất (daily, twice_daily, etc.)
-            - time_of_day (list): Danh sách thời gian ["08:00", "20:00"]
-            - start_date (str, optional): Ngày bắt đầu (YYYY-MM-DD)
-            - end_date (str, optional): Ngày kết thúc (YYYY-MM-DD)
-            - notes (str, optional): Ghi chú
+        user_id: ID người tạo
+        data: Dữ liệu từ Controller (medication_name, time_of_day, frequency...)
     
     Returns:
-        MedicationSchedule: Lịch vừa tạo
+        MedicationSchedule object vừa tạo
     """
-    # Tạo schedule
+    # 1. Khởi tạo đối tượng Schedule
     schedule = MedicationSchedule(
         user_id=user_id,
         medication_name=data['medication_name'],
         dosage=data.get('dosage'),
         frequency=data.get('frequency', 'daily'),
         notes=data.get('notes'),
-        is_active=True
+        is_active=True  # Mặc định kích hoạt ngay
     )
     
-    # Set time_of_day
+    # 2. Set danh sách giờ uống (Method này handle việc chuyển list -> JSON string)
     schedule.set_time_of_day_list(data['time_of_day'])
     
-    # Parse dates
-    if 'start_date' in data:
+    # 3. Parse ngày bắt đầu/kết thúc
+    if 'start_date' in data and data['start_date']:
         schedule.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
     else:
+        # Mặc định bắt đầu từ hôm nay
         schedule.start_date = datetime.now(VIETNAM_TZ).date()
     
     if 'end_date' in data and data['end_date']:
         schedule.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
     
+    # Lưu Schedule vào DB trước để có ID
     db.session.add(schedule)
-    db.session.flush()  # Get schedule_id
+    db.session.flush()  # Commit tạm để lấy schedule.schedule_id
     
-    # Tạo logs cho 7 ngày tới
+    # 4. QUAN TRỌNG: Sinh Logs nhắc nhở cho 7 ngày tiếp theo
     _generate_logs_for_schedule(schedule, days=7)
     
     db.session.commit()
@@ -74,15 +80,8 @@ def create_schedule(user_id: int, data: dict) -> MedicationSchedule:
 
 def update_schedule(schedule_id: int, user_id: int, data: dict) -> Optional[MedicationSchedule]:
     """
-    Cập nhật lịch uống thuốc.
-    
-    Args:
-        schedule_id: ID lịch
-        user_id: ID người dùng (để verify ownership)
-        data: Dictionary chứa thông tin cần cập nhật
-    
-    Returns:
-        MedicationSchedule hoặc None nếu không tìm thấy
+    Cập nhật thông tin lịch uống thuốc.
+    Nếu user đổi giờ uống, cần xóa Logs cũ chưa uống và tạo Logs mới.
     """
     schedule = MedicationSchedule.query.filter_by(
         schedule_id=schedule_id,
@@ -92,29 +91,40 @@ def update_schedule(schedule_id: int, user_id: int, data: dict) -> Optional[Medi
     if not schedule:
         return None
     
-    # Update fields
+    # Cập nhật các trường thông tin đơn giản
     if 'medication_name' in data:
         schedule.medication_name = data['medication_name']
     if 'dosage' in data:
         schedule.dosage = data['dosage']
     if 'frequency' in data:
         schedule.frequency = data['frequency']
-    if 'time_of_day' in data:
-        schedule.set_time_of_day_list(data['time_of_day'])
-    if 'start_date' in data:
+    if 'notes' in data:
+        schedule.notes = data['notes']
+    if 'is_active' in data:
+        schedule.is_active = data['is_active']
+        
+    if 'start_date' in data and data['start_date']:
         schedule.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
+        
     if 'end_date' in data:
         if data['end_date']:
             schedule.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
         else:
             schedule.end_date = None
-    if 'notes' in data:
-        schedule.notes = data['notes']
-    if 'is_active' in data:
-        schedule.is_active = data['is_active']
-    
-    # Regenerate future logs if time changed
+
+    # XỬ LÝ ĐẶC BIỆT KHI THAY ĐỔI GIỜ UỐNG
+    time_changed = False
     if 'time_of_day' in data:
+        new_times = sorted(data['time_of_day'])
+        old_times = sorted(schedule.get_time_of_day_list())
+        if new_times != old_times:
+            schedule.set_time_of_day_list(data['time_of_day'])
+            time_changed = True
+    
+    # Nếu giờ thay đổi:
+    # 1. Xóa các log tương lai chưa thực hiện (vì sai giờ rồi)
+    # 2. Sinh lại log theo giờ mới
+    if time_changed:
         _delete_future_pending_logs(schedule)
         _generate_logs_for_schedule(schedule, days=7)
     
@@ -124,14 +134,8 @@ def update_schedule(schedule_id: int, user_id: int, data: dict) -> Optional[Medi
 
 def delete_schedule(schedule_id: int, user_id: int) -> bool:
     """
-    Xóa lịch uống thuốc (soft delete bằng cách set is_active=False).
-    
-    Args:
-        schedule_id: ID lịch
-        user_id: ID người dùng
-    
-    Returns:
-        bool: True nếu xóa thành công
+    Soft Delete: Chỉ set is_active = False chứ không xóa khỏi DB.
+    Giúp giữ lại lịch sử đã uống thuốc để thống kê.
     """
     schedule = MedicationSchedule.query.filter_by(
         schedule_id=schedule_id,
@@ -142,63 +146,47 @@ def delete_schedule(schedule_id: int, user_id: int) -> bool:
         return False
     
     schedule.is_active = False
+    
+    # Tùy chọn: Có thể xóa các log pending tương lai để không nhắc nữa
+    _delete_future_pending_logs(schedule)
+    
     db.session.commit()
     return True
 
 
 def get_schedules_by_user(user_id: int, include_inactive: bool = False) -> List[MedicationSchedule]:
-    """
-    Lấy danh sách lịch uống thuốc của user.
-    
-    Args:
-        user_id: ID người dùng
-        include_inactive: Có lấy cả lịch đã tắt không
-    
-    Returns:
-        List[MedicationSchedule]
-    """
+    """Lấy danh sách lịch uống thuốc của user."""
     query = MedicationSchedule.query.filter_by(user_id=user_id)
     
     if not include_inactive:
+        # Mặc định chỉ lấy các lịch đang hoạt động
         query = query.filter_by(is_active=True)
     
     return query.order_by(MedicationSchedule.created_at.desc()).all()
 
 
 def get_schedule_by_id(schedule_id: int, user_id: int) -> Optional[MedicationSchedule]:
-    """
-    Lấy chi tiết 1 lịch.
-    
-    Args:
-        schedule_id: ID lịch
-        user_id: ID người dùng
-    
-    Returns:
-        MedicationSchedule hoặc None
-    """
+    """Lấy chi tiết 1 lịch (kiểm tra đúng chủ sở hữu)."""
     return MedicationSchedule.query.filter_by(
         schedule_id=schedule_id,
         user_id=user_id
     ).first()
 
 
+# ============================================================================
+# LOGGING & TRACKING (GHI NHẬN TRẠNG THÁI)
+# ============================================================================
+
 def record_medication_taken(log_id: int, user_id: int, note: Optional[str] = None) -> Optional[MedicationLog]:
     """
-    Ghi nhận đã uống thuốc.
-    
-    Args:
-        log_id: ID log
-        user_id: ID người dùng
-        note: Ghi chú (optional)
-    
-    Returns:
-        MedicationLog hoặc None
+    User xác nhận đã uống thuốc (Mark as Taken).
     """
     log = MedicationLog.query.filter_by(log_id=log_id, user_id=user_id).first()
     
     if not log:
         return None
     
+    # Hàm mark_as_taken trong model sẽ cập nhật status='taken' và actual_time=Now
     log.mark_as_taken(note)
     db.session.commit()
     return log
@@ -206,15 +194,7 @@ def record_medication_taken(log_id: int, user_id: int, note: Optional[str] = Non
 
 def record_medication_skipped(log_id: int, user_id: int, note: Optional[str] = None) -> Optional[MedicationLog]:
     """
-    Ghi nhận bỏ qua uống thuốc.
-    
-    Args:
-        log_id: ID log
-        user_id: ID người dùng
-        note: Ghi chú lý do (optional)
-    
-    Returns:
-        MedicationLog hoặc None
+    User xác nhận bỏ qua liều thuốc này (Mark as Skipped).
     """
     log = MedicationLog.query.filter_by(log_id=log_id, user_id=user_id).first()
     
@@ -229,15 +209,8 @@ def record_medication_skipped(log_id: int, user_id: int, note: Optional[str] = N
 def get_logs_by_user(user_id: int, start_date: Optional[str] = None, 
                      end_date: Optional[str] = None) -> List[MedicationLog]:
     """
-    Lấy lịch sử uống thuốc của user.
-    
-    Args:
-        user_id: ID người dùng
-        start_date: Ngày bắt đầu filter (YYYY-MM-DD)
-        end_date: Ngày kết thúc filter (YYYY-MM-DD)
-    
-    Returns:
-        List[MedicationLog]
+    Lấy danh sách Logs để hiển thị lên lịch/danh sách.
+    Hỗ trợ lọc theo khoảng ngày.
     """
     query = MedicationLog.query.filter_by(user_id=user_id)
     
@@ -246,6 +219,7 @@ def get_logs_by_user(user_id: int, start_date: Optional[str] = None,
         query = query.filter(MedicationLog.scheduled_time >= start_dt)
     
     if end_date:
+        # End date phải cộng thêm 1 ngày để lấy hết ngày đó (vì DB lưu datetime)
         end_dt = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
         query = query.filter(MedicationLog.scheduled_time < end_dt)
     
@@ -254,21 +228,7 @@ def get_logs_by_user(user_id: int, start_date: Optional[str] = None,
 
 def get_compliance_stats(user_id: int, days: int = 30) -> Dict:
     """
-    Tính toán thống kê tuân thủ uống thuốc.
-    
-    Args:
-        user_id: ID người dùng
-        days: Số ngày gần đây để tính (mặc định 30 ngày)
-    
-    Returns:
-        Dict chứa thống kê:
-        {
-            'total': int,
-            'taken': int,
-            'skipped': int,
-            'pending': int,
-            'compliance_rate': float (%)
-        }
+    Tính toán thống kê tuân thủ trong X ngày gần nhất.
     """
     start_date = datetime.now(VIETNAM_TZ) - timedelta(days=days)
     
@@ -282,7 +242,8 @@ def get_compliance_stats(user_id: int, days: int = 30) -> Dict:
     skipped = sum(1 for log in logs if log.status == 'skipped')
     pending = sum(1 for log in logs if log.status == 'pending')
     
-    # Tính compliance rate (chỉ tính trên các log đã có kết quả)
+    # Công thức tỷ lệ tuân thủ: Đã uống / (Đã uống + Bỏ qua)
+    # Không tính các liều 'pending' (vì chưa đến giờ hoặc chưa action)
     completed = taken + skipped
     compliance_rate = (taken / completed * 100) if completed > 0 else 0
     
@@ -297,31 +258,26 @@ def get_compliance_stats(user_id: int, days: int = 30) -> Dict:
 
 def get_upcoming_medications(user_id: int, hours: int = 24) -> List[Dict]:
     """
-    Lấy danh sách thuốc sắp uống trong X giờ tới (cho chatbot và API).
-    
-    Args:
-        user_id: ID người dùng
-        hours: Số giờ tới (mặc định 24h)
-    
-    Returns:
-        List[Dict] chứa thông tin thuốc sắp uống, sắp xếp theo thời gian
+    Lấy các liều thuốc sắp đến giờ uống.
+    Hữu ích cho Widget hoặc màn hình Home của Chatbot.
     """
     now = datetime.now(VIETNAM_TZ)
     end_time = now + timedelta(hours=hours)
     
+    # Join bảng Logs với Schedule để lấy tên thuốc
     logs = MedicationLog.query.join(MedicationSchedule).filter(
         MedicationLog.user_id == user_id,
-        MedicationLog.status == 'pending',
+        MedicationLog.status == 'pending', # Chỉ lấy cái chưa uống
         MedicationLog.scheduled_time >= now,
         MedicationLog.scheduled_time <= end_time,
-        MedicationSchedule.is_active == True
+        MedicationSchedule.is_active == True # Lịch phải đang active
     ).order_by(MedicationLog.scheduled_time).all()
     
     result = []
     for log in logs:
         scheduled_vn = log.scheduled_time.astimezone(VIETNAM_TZ)
         
-        # Tính xem là hôm nay, ngày mai, hay ngày nào
+        # Logic hiển thị nhãn ngày (Hôm nay, Ngày mai...)
         today = now.date()
         scheduled_date = scheduled_vn.date()
         
@@ -337,16 +293,15 @@ def get_upcoming_medications(user_id: int, hours: int = 24) -> List[Dict]:
             'schedule_id': log.schedule_id,
             'medication_name': log.schedule.medication_name,
             'dosage': log.schedule.dosage,
-            'scheduled_time': scheduled_vn.isoformat(),  # Full ISO datetime
-            'time': scheduled_vn.strftime('%H:%M'),  # Chỉ giờ:phút
-            'date': scheduled_vn.strftime('%Y-%m-%d'),  # Ngày
-            'date_label': date_label,  # "Hôm nay", "Ngày mai", hoặc "DD/MM/YYYY"
-            'display': f"{date_label} {scheduled_vn.strftime('%H:%M')}",  # "Hôm nay 20:00"
+            'scheduled_time': scheduled_vn.isoformat(),
+            'time': scheduled_vn.strftime('%H:%M'),
+            'date': scheduled_vn.strftime('%Y-%m-%d'),
+            'date_label': date_label,
+            'display': f"{date_label} {scheduled_vn.strftime('%H:%M')}",
             'notes': log.schedule.notes
         })
     
     return result
-
 
 
 # ============================================================================
@@ -355,37 +310,39 @@ def get_upcoming_medications(user_id: int, hours: int = 24) -> List[Dict]:
 
 def _generate_logs_for_schedule(schedule: MedicationSchedule, days: int = 7):
     """
-    Tạo logs cho lịch uống thuốc trong X ngày tới.
-    
-    Args:
-        schedule: MedicationSchedule object
-        days: Số ngày tạo logs
+    Logic sinh logs tự động (Core Logic).
+    Duyệt qua từng ngày từ start_date -> start_date + days.
+    Duyệt qua từng khung giờ trong time_of_day.
+    Nếu thời gian đó > hiện tại -> Tạo Log pending.
     """
     now = datetime.now(VIETNAM_TZ)
+    # Bắt đầu từ ngày start_date của lịch, hoặc hôm nay (nếu start_date < hôm nay)
     start_date = max(schedule.start_date, now.date())
     
-    time_list = schedule.get_time_of_day_list()
+    time_list = schedule.get_time_of_day_list()  # ['08:00', '20:00']
     
     for day_offset in range(days):
         current_date = start_date + timedelta(days=day_offset)
         
-        # Kiểm tra có vượt quá end_date không
+        # Nếu đã quá end_date của lịch thì dừng
         if schedule.end_date and current_date > schedule.end_date:
             break
         
-        # Tạo log cho mỗi thời gian trong ngày
+        # Duyệt qua từng giờ uống
         for time_str in time_list:
             hour, minute = map(int, time_str.split(':'))
+            
+            # Kết hợp ngày + giờ thành datetime (có múi giờ VN)
             scheduled_dt = VIETNAM_TZ.localize(
                 datetime.combine(current_date, time(hour, minute))
             )
             
-            # Chỉ tạo log cho thời gian trong tương lai
+            # Chỉ tạo log nếu thời điểm đó chưa qua
             if scheduled_dt > now:
                 log = MedicationLog(
                     schedule_id=schedule.schedule_id,
                     user_id=schedule.user_id,
-                    scheduled_time=scheduled_dt.astimezone(pytz.utc),  # Lưu UTC trong DB
+                    scheduled_time=scheduled_dt.astimezone(pytz.utc),  # DB lưu UTC chuẩn
                     status='pending'
                 )
                 db.session.add(log)
@@ -393,15 +350,13 @@ def _generate_logs_for_schedule(schedule: MedicationSchedule, days: int = 7):
 
 def _delete_future_pending_logs(schedule: MedicationSchedule):
     """
-    Xóa các logs pending trong tương lai của lịch (khi update time).
-    
-    Args:
-        schedule: MedicationSchedule object
+    Xóa các logs trạng thái 'pending' trong tương lai.
+    Dùng khi user sửa đổi lịch hoặc xóa lịch.
     """
     now = datetime.now(VIETNAM_TZ)
     
     MedicationLog.query.filter(
         MedicationLog.schedule_id == schedule.schedule_id,
-        MedicationLog.status == 'pending',
-        MedicationLog.scheduled_time > now
+        MedicationLog.status == 'pending',  # Chỉ xóa cái chưa uống
+        MedicationLog.scheduled_time > now  # Chỉ xóa tương lai
     ).delete()
