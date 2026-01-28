@@ -9,15 +9,15 @@ logger = logging.getLogger(__name__)
 class PhoBERTEmbeddingFunction(EmbeddingFunction):
     """
     PhoBERT embedding function optimized for Vietnamese medical text.
-    Uses vinai/phobert-base model with mean pooling.
+    Uses vinai/phobert-base-v2 model with mean pooling.
     """
     
-    def __init__(self, model_name="vinai/phobert-base", device=None, max_length=256):
+    def __init__(self, model_name="vinai/phobert-base-v2", device=None, max_length=256):
         """
         Initialize PhoBERT embedding function.
         
         Args:
-            model_name: HuggingFace model name (default: vinai/phobert-base)
+            model_name: HuggingFace model name (default: vinai/phobert-base-v2)
             device: Device to use ('cuda', 'cpu', or None for auto-detect)
             max_length: Maximum sequence length for tokenization
         """

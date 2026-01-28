@@ -131,7 +131,17 @@ def tim_benh_vien_gan_nhat(
     logger.info(f"🏥 Tool called: tim_benh_vien_gan_nhat({vi_do}, {kinh_do}, {chuyen_khoa}, {ban_kinh_km}km)")
     
     try:
-        # Gọi hospital finder service
+        # === NEW: QUERY EXPANSION WITH GPT ===
+        if chuyen_khoa:
+            try:
+                from src.services.hospital_specialty_rag import expand_specialty_query_with_gpt
+                expanded_query = expand_specialty_query_with_gpt(chuyen_khoa)
+                logger.info(f"🔄 Expanded specialty: '{chuyen_khoa}' → '{expanded_query}'")
+                chuyen_khoa = expanded_query
+            except Exception as e:
+                logger.warning(f"Query expansion failed: {e}. Using original query.")
+        
+        # === CALL HOSPITAL FINDER SERVICE ===
         result = hospital_finder_service.find_nearby_hospitals(
             latitude=vi_do,
             longitude=kinh_do,
@@ -145,6 +155,14 @@ def tim_benh_vien_gan_nhat(
         
         hospitals = result['hospitals']
         
+        # === EXPOSE DATA FOR FRONTEND ===
+        try:
+            from flask import g
+            g.map_data = hospitals
+            logger.info(f"✓ Stored {len(hospitals)} hospital locations in flask.g.map_data")
+        except Exception as e:
+            logger.warning(f"Could not store map data in flask.g: {e}")
+
         if not hospitals:
             return "Không tìm thấy bệnh viện nào trong khu vực này. Vui lòng mở rộng bán kính tìm kiếm."
         
@@ -188,20 +206,50 @@ def lay_thong_tin_nguoi_dung(user_id: int) -> str:
                 result_parts.append(f"📅 Ngày sinh: {profile.date_of_birth or 'Chưa cập nhật'}")
                 result_parts.append(f"⚧ Giới tính: {profile.gender or 'Chưa cập nhật'}")
                 
+                # Thêm phân tích BMI
+                bmi = profile.calculate_bmi()
+                if bmi:
+                    result_parts.append(f"⚖️ BMI: {bmi}")
+                
                 if profile.allergies:
                     result_parts.append(f"⚠️ DỊ ỨNG: {profile.allergies}")
                     result_parts.append("   → TUYỆT ĐỐI KHÔNG đề xuất thuốc/thực phẩm có chất này!")
                 
-                if profile.chronic_diseases:
-                    result_parts.append(f"🏥 Bệnh mãn tính: {profile.chronic_diseases}")
+                if profile.chronic_conditions:
+                    result_parts.append(f"🏥 Bệnh mãn tính: {profile.chronic_conditions}")
                 
-                if profile.current_medications:
-                    result_parts.append(f"💊 Thuốc đang dùng: {profile.current_medications}")
+                if profile.medications:
+                    result_parts.append(f"💊 Thuốc đang dùng: {profile.medications}")
                 
                 result_parts.append("")
+                
+                # === PHÂN TÍCH SỨC KHỎE ===
+                try:
+                    from src.services.health_analysis_service import health_analysis_service
+                    
+                    # Phân tích BMI
+                    bmi_analysis = health_analysis_service.analyze_bmi(profile)
+                    if bmi_analysis['value']:
+                        result_parts.append("【PHÂN TÍCH SỨC KHỎE】")
+                        result_parts.append(f"📊 BMI: {bmi_analysis['value']} - {bmi_analysis['category_label']}")
+                        result_parts.append(f"   {bmi_analysis['assessment']}")
+                        
+                        # Lời khuyên nhanh về chế độ ăn
+                        diet_recs = health_analysis_service.generate_diet_recommendations(profile)
+                        if diet_recs['recommendations']:
+                            result_parts.append(f"🍎 Lời khuyên ăn uống: {diet_recs['recommendations'][0]}")
+                        
+                        # Lời khuyên về tập luyện
+                        exercise_recs = health_analysis_service.generate_exercise_recommendations(profile)
+                        result_parts.append(f"🏃 Tập luyện: {exercise_recs['frequency']}, {exercise_recs['duration']}")
+                        
+                        result_parts.append("")
+                except Exception as e:
+                    logger.warning(f"Could not generate health analysis: {e}")
             else:
                 result_parts.append("【HỒ SƠ SỨC KHỎE】")
                 result_parts.append("Chưa có thông tin hồ sơ sức khỏe.")
+                result_parts.append("💡 Khuyến nghị: Cập nhật hồ sơ để nhận lời khuyên cá nhân hóa về sức khỏe.")
                 result_parts.append("")
         except Exception as e:
             logger.warning(f"Could not fetch health profile: {e}")
@@ -306,8 +354,10 @@ def lay_thong_tin_nguoi_dung(user_id: int) -> str:
         result_parts.append("【GỢI Ý CHỦ ĐỘNG】")
         result_parts.append("Dựa trên thông tin trên, hãy:")
         result_parts.append("• Tham khảo DỊ ỨNG trước khi đề xuất thuốc")
+        result_parts.append("• Tham khảo phân tích BMI và lời khuyên sức khỏe khi tư vấn")
         result_parts.append("• Nhắc nhở nếu có thuốc sắp uống")
         result_parts.append("• Hỏi thêm về bệnh mãn tính nếu liên quan")
+        result_parts.append("• Đề xuất phân tích sức khỏe chi tiết nếu user quan tâm")
         result_parts.append("• Đề xuất tìm bệnh viện nếu triệu chứng nghiêm trọng")
         
         formatted_result = "\n".join(result_parts)

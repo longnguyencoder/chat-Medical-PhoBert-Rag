@@ -1,0 +1,783 @@
+[
+  {
+    "specialty_id": "sp_001",
+    "specialty_name": "Ung bướu",
+    "description": "Chuyên khoa điều trị ung thư, khối u, hóa trị, xạ trị, phẫu thuật u bướu, điều trị bệnh ác tính",
+    "synonyms": [
+      "ung thư",
+      "ung bướu",
+      "khối u",
+      "cancer",
+      "oncology",
+      "hóa trị",
+      "xạ trị",
+      "hóa chất",
+      "xạ trị liệu",
+      "u ác tính",
+      "bệnh ung thư",
+      "điều trị ung thư",
+      "bướu cổ",
+      "bướu giáp"
+    ],
+    "hospital_keywords": [
+      "ung buou",
+      "benh vien k",
+      "cho ray",
+      "bach mai",
+      "175",
+      "115",
+      "dai hoc y duoc"
+    ],
+    "symptoms": [
+      "u cục",
+      "sụt cân không rõ nguyên nhân",
+      "mệt mỏi kéo dài",
+      "đau không rõ nguyên nhân",
+      "chảy máu bất thường",
+      "khối u dưới da"
+    ],
+    "osm_tags": ["oncology", "cancer_center", "hospital"]
+  },
+  {
+    "specialty_id": "sp_002",
+    "specialty_name": "Tim mạch",
+    "description": "Chuyên khoa điều trị bệnh tim, mạch máu, huyết áp, nhồi máu cơ tim, suy tim, rối loạn nhịp tim",
+    "synonyms": [
+      "tim",
+      "tim mạch",
+      "mạch máu",
+      "cardiology",
+      "huyết áp",
+      "cao huyết áp",
+      "hạ huyết áp",
+      "nhồi máu cơ tim",
+      "suy tim",
+      "tim đập nhanh",
+      "rối loạn nhịp tim",
+      "bệnh tim"
+    ],
+    "hospital_keywords": [
+      "vien tim",
+      "tim mach",
+      "cho ray",
+      "bach mai",
+      "115",
+      "thong nhat",
+      "lao khoa"
+    ],
+    "symptoms": [
+      "đau ngực",
+      "khó thở",
+      "hồi hộp",
+      "tim đập nhanh",
+      "chóng mặt",
+      "mệt mỏi",
+      "đau tức ngực",
+      "khó thở khi gắng sức"
+    ],
+    "osm_tags": ["cardiology", "heart_center", "hospital"]
+  },
+  {
+    "specialty_id": "sp_003",
+    "specialty_name": "Nhi khoa",
+    "description": "Chuyên khoa điều trị bệnh cho trẻ em, sơ sinh, tiêm chủng, dinh dưỡng trẻ em",
+    "synonyms": [
+      "nhi",
+      "nhi khoa",
+      "trẻ em",
+      "pediatrics",
+      "sơ sinh",
+      "em bé",
+      "bệnh nhi",
+      "tiêm chủng",
+      "dinh dưỡng trẻ em"
+    ],
+    "hospital_keywords": [
+      "nhi dong",
+      "tu du",
+      "hung vuong",
+      "bach mai",
+      "viet duc",
+      "xanh pon",
+      "nam sai gon"
+    ],
+    "symptoms": [
+      "sốt ở trẻ",
+      "ho ở trẻ",
+      "tiêu chảy",
+      "nôn trớ",
+      "biếng ăn",
+      "chậm phát triển",
+      "sốt cao"
+    ],
+    "osm_tags": ["pediatrics", "children_hospital", "hospital"]
+  },
+  {
+    "specialty_id": "sp_004",
+    "specialty_name": "Sản phụ khoa",
+    "description": "Chuyên khoa sản khoa, phụ khoa, mang thai, sinh đẻ, vô sinh, hiếm muộn, IVF",
+    "synonyms": [
+      "sản",
+      "phụ khoa",
+      "sản phụ khoa",
+      "mang thai",
+      "bà bầu",
+      "sinh đẻ",
+      "vô sinh",
+      "hiếm muộn",
+      "ivf",
+      "thụ tinh ống nghiệm",
+      "obstetrics",
+      "gynecology"
+    ],
+    "hospital_keywords": [
+      "tu du",
+      "hung vuong",
+      "phu san",
+      "me va be",
+      "hanh phuc",
+      "tam anh",
+      "my duc",
+      "binh dan"
+    ],
+    "symptoms": [
+      "đau bụng dưới",
+      "rong kinh",
+      "rong huyết",
+      "vô kinh",
+      "khó thụ thai",
+      "đau khi quan hệ"
+    ],
+    "osm_tags": ["obstetrics", "gynecology", "maternity", "hospital"]
+  },
+  {
+    "specialty_id": "sp_005",
+    "specialty_name": "Thần kinh",
+    "description": "Chuyên khoa điều trị bệnh thần kinh, đột quỵ, tai biến, đau đầu, động kinh, Parkinson",
+    "synonyms": [
+      "thần kinh",
+      "neurology",
+      "đột quỵ",
+      "tai biến",
+      "đau đầu",
+      "động kinh",
+      "parkinson",
+      "sa sút trí tuệ",
+      "alzheimer",
+      "đau dây thần kinh"
+    ],
+    "hospital_keywords": [
+      "cho ray",
+      "ngoai than kinh",
+      "bach mai",
+      "viet duc",
+      "115",
+      "dot quy"
+    ],
+    "symptoms": [
+      "đau đầu dữ dội",
+      "chóng mặt",
+      "tê liệt",
+      "yếu tay chân",
+      "co giật",
+      "mất ý thức",
+      "nói khó"
+    ],
+    "osm_tags": ["neurology", "stroke_center", "hospital"]
+  },
+  {
+    "specialty_id": "sp_006",
+    "specialty_name": "Tiêu hóa",
+    "description": "Chuyên khoa điều trị bệnh dạ dày, ruột, gan, mật, tụy, viêm loét dạ dày, trĩ",
+    "synonyms": [
+      "tiêu hóa",
+      "gastroenterology",
+      "dạ dày",
+      "ruột",
+      "gan",
+      "mật",
+      "tụy",
+      "đại tràng",
+      "trĩ",
+      "hậu môn",
+      "viêm loét dạ dày"
+    ],
+    "hospital_keywords": [
+      "binh dan",
+      "dai hoc y duoc",
+      "cho ray",
+      "bach mai",
+      "108",
+      "nhiet doi"
+    ],
+    "symptoms": [
+      "đau bụng",
+      "đau dạ dày",
+      "ợ nóng",
+      "ợ chua",
+      "tiêu chảy",
+      "táo bón",
+      "đi ngoài ra máu",
+      "buồn nôn"
+    ],
+    "osm_tags": ["gastroenterology", "hospital"]
+  },
+  {
+    "specialty_id": "sp_007",
+    "specialty_name": "Thận - Tiết niệu",
+    "description": "Chuyên khoa điều trị bệnh thận, suy thận, chạy thận, sỏi thận, bàng quang, tiết niệu",
+    "synonyms": [
+      "thận",
+      "tiết niệu",
+      "suy thận",
+      "chạy thận",
+      "sỏi thận",
+      "bàng quang",
+      "nephrology",
+      "urology",
+      "lọc máu",
+      "thận nhân tạo"
+    ],
+    "hospital_keywords": [
+      "binh dan",
+      "cho ray",
+      "bach mai",
+      "viet duc",
+      "thong nhat"
+    ],
+    "symptoms": [
+      "đau lưng",
+      "tiểu buốt",
+      "tiểu ra máu",
+      "tiểu khó",
+      "sưng phù",
+      "đái dầm"
+    ],
+    "osm_tags": ["nephrology", "urology", "hospital"]
+  },
+  {
+    "specialty_id": "sp_008",
+    "specialty_name": "Xương khớp",
+    "description": "Chuyên khoa chấn thương chỉnh hình, xương khớp, cột sống, thoát vị đĩa đệm, gãy xương",
+    "synonyms": [
+      "xương khớp",
+      "chấn thương chỉnh hình",
+      "orthopedics",
+      "cột sống",
+      "thoát vị đĩa đệm",
+      "gãy xương",
+      "gút",
+      "viêm khớp",
+      "đau khớp",
+      "đau lưng"
+    ],
+    "hospital_keywords": [
+      "chan thuong chinh hinh",
+      "viet duc",
+      "115",
+      "cho ray",
+      "bach mai",
+      "108"
+    ],
+    "symptoms": [
+      "đau lưng",
+      "đau khớp",
+      "sưng khớp",
+      "gãy xương",
+      "bong gân",
+      "đau cột sống",
+      "tê tay chân"
+    ],
+    "osm_tags": ["orthopedics", "trauma", "hospital"]
+  },
+  {
+    "specialty_id": "sp_009",
+    "specialty_name": "Hô hấp - Phổi",
+    "description": "Chuyên khoa điều trị bệnh phổi, lao, hen suyễn, viêm phổi, COPD",
+    "synonyms": [
+      "hô hấp",
+      "phổi",
+      "pulmonology",
+      "lao",
+      "hen suyễn",
+      "viêm phổi",
+      "copd",
+      "khó thở",
+      "ho lâu ngày"
+    ],
+    "hospital_keywords": [
+      "pham ngoc thach",
+      "phoi",
+      "bach mai",
+      "cho ray",
+      "dai hoc y duoc"
+    ],
+    "symptoms": [
+      "ho",
+      "ho ra máu",
+      "khó thở",
+      "thở khò khè",
+      "đau ngực khi thở",
+      "sốt",
+      "mệt mỏi"
+    ],
+    "osm_tags": ["pulmonology", "respiratory", "hospital"]
+  },
+  {
+    "specialty_id": "sp_010",
+    "specialty_name": "Tai mũi họng",
+    "description": "Chuyên khoa điều trị bệnh tai, mũi, họng, viêm xoang, viêm amidan, nghe kém",
+    "synonyms": [
+      "tai mũi họng",
+      "ent",
+      "otolaryngology",
+      "viêm xoang",
+      "viêm amidan",
+      "nghe kém",
+      "điếc",
+      "viêm tai",
+      "viêm họng"
+    ],
+    "hospital_keywords": [
+      "tai mui hong",
+      "cho ray",
+      "bach mai",
+      "tw"
+    ],
+    "symptoms": [
+      "đau tai",
+      "ù tai",
+      "chảy mũi",
+      "nghẹt mũi",
+      "đau họng",
+      "khó nuốt",
+      "nghe kém"
+    ],
+    "osm_tags": ["ent", "otolaryngology", "hospital"]
+  },
+  {
+    "specialty_id": "sp_011",
+    "specialty_name": "Mắt",
+    "description": "Chuyên khoa điều trị bệnh mắt, cận thị, đục thủy tinh thể, glaucoma, võng mạc",
+    "synonyms": [
+      "mắt",
+      "ophthalmology",
+      "cận thị",
+      "viễn thị",
+      "đục thủy tinh thể",
+      "glaucoma",
+      "võng mạc",
+      "nhãn khoa",
+      "mờ mắt"
+    ],
+    "hospital_keywords": [
+      "mat",
+      "cho ray",
+      "tw",
+      "xanh pon",
+      "nga"
+    ],
+    "symptoms": [
+      "mờ mắt",
+      "đau mắt",
+      "ngứa mắt",
+      "chảy nước mắt",
+      "nhìn mờ",
+      "giảm thị lực"
+    ],
+    "osm_tags": ["ophthalmology", "eye_hospital", "hospital"]
+  },
+  {
+    "specialty_id": "sp_012",
+    "specialty_name": "Răng hàm mặt",
+    "description": "Chuyên khoa điều trị bệnh răng, nha khoa, niềng răng, nhổ răng, implant",
+    "synonyms": [
+      "răng hàm mặt",
+      "nha khoa",
+      "dentistry",
+      "răng",
+      "niềng răng",
+      "nhổ răng",
+      "implant",
+      "sâu răng",
+      "viêm nướu"
+    ],
+    "hospital_keywords": [
+      "rang ham mat",
+      "nha khoa",
+      "cho ray",
+      "dai hoc y"
+    ],
+    "symptoms": [
+      "đau răng",
+      "sâu răng",
+      "chảy máu chân răng",
+      "viêm nướu",
+      "hôi miệng"
+    ],
+    "osm_tags": ["dentistry", "dental_hospital", "hospital"]
+  },
+  {
+    "specialty_id": "sp_013",
+    "specialty_name": "Da liễu",
+    "description": "Chuyên khoa điều trị bệnh da, dị ứng, mụn, vảy nến, viêm da, thẩm mỹ da",
+    "synonyms": [
+      "da liễu",
+      "dermatology",
+      "dị ứng",
+      "mụn",
+      "vảy nến",
+      "viêm da",
+      "nổi mề đay",
+      "ngứa",
+      "thẩm mỹ da"
+    ],
+    "hospital_keywords": [
+      "da lieu",
+      "quy hoa",
+      "tp hcm",
+      "bach mai",
+      "cho ray"
+    ],
+    "symptoms": [
+      "ngứa",
+      "nổi mẩn",
+      "mụn",
+      "vảy nến",
+      "viêm da",
+      "mề đay",
+      "nấm da"
+    ],
+    "osm_tags": ["dermatology", "hospital"]
+  },
+  {
+    "specialty_id": "sp_014",
+    "specialty_name": "Truyền nhiễm",
+    "description": "Chuyên khoa điều trị bệnh truyền nhiễm, sốt xuất huyết, viêm não, HIV, viêm gan",
+    "synonyms": [
+      "truyền nhiễm",
+      "infectious diseases",
+      "sốt xuất huyết",
+      "viêm não",
+      "hiv",
+      "viêm gan",
+      "sốt rét",
+      "ký sinh trùng"
+    ],
+    "hospital_keywords": [
+      "nhiet doi",
+      "bach mai",
+      "cho ray",
+      "nhi dong",
+      "sot ret"
+    ],
+    "symptoms": [
+      "sốt cao",
+      "sốt xuất huyết",
+      "đau đầu dữ dội",
+      "buồn nôn",
+      "nôn",
+      "xuất huyết"
+    ],
+    "osm_tags": ["infectious_diseases", "tropical_medicine", "hospital"]
+  },
+  {
+    "specialty_id": "sp_015",
+    "specialty_name": "Nội tiết",
+    "description": "Chuyên khoa điều trị bệnh nội tiết, tiểu đường, tuyến giáp, basedow, béo phì",
+    "synonyms": [
+      "nội tiết",
+      "endocrinology",
+      "tiểu đường",
+      "đái tháo đường",
+      "tuyến giáp",
+      "basedow",
+      "béo phì",
+      "hormone",
+      "tuyến yên"
+    ],
+    "hospital_keywords": [
+      "noi tiet",
+      "bach mai",
+      "cho ray",
+      "115",
+      "dai hoc y duoc"
+    ],
+    "symptoms": [
+      "khát nước nhiều",
+      "đi tiểu nhiều",
+      "sụt cân",
+      "tăng cân",
+      "run tay",
+      "mệt mỏi"
+    ],
+    "osm_tags": ["endocrinology", "hospital"]
+  },
+  {
+    "specialty_id": "sp_016",
+    "specialty_name": "Tâm thần",
+    "description": "Chuyên khoa điều trị bệnh tâm thần, trầm cảm, lo âu, stress, tự kỷ, tâm lý",
+    "synonyms": [
+      "tâm thần",
+      "psychiatry",
+      "trầm cảm",
+      "lo âu",
+      "stress",
+      "tự kỷ",
+      "tâm lý",
+      "sức khỏe tâm thần",
+      "rối loạn tâm thần"
+    ],
+    "hospital_keywords": [
+      "tam than",
+      "suc khoe tam than",
+      "mai huong",
+      "than kinh"
+    ],
+    "symptoms": [
+      "buồn chán",
+      "mất ngủ",
+      "lo lắng",
+      "stress",
+      "suy nghĩ tiêu cực",
+      "ảo giác"
+    ],
+    "osm_tags": ["psychiatry", "mental_health", "hospital"]
+  },
+  {
+    "specialty_id": "sp_017",
+    "specialty_name": "Y học cổ truyền",
+    "description": "Chuyên khoa y học cổ truyền, đông y, châm cứu, bấm huyệt, thuốc nam",
+    "synonyms": [
+      "y học cổ truyền",
+      "đông y",
+      "traditional medicine",
+      "châm cứu",
+      "bấm huyệt",
+      "thuốc nam",
+      "xoa bóp",
+      "vật lý trị liệu"
+    ],
+    "hospital_keywords": [
+      "y hoc co truyen",
+      "dong y",
+      "cham cuu"
+    ],
+    "symptoms": [
+      "đau mỏi",
+      "đau lưng mãn tính",
+      "stress",
+      "mất ngủ",
+      "đau khớp"
+    ],
+    "osm_tags": ["traditional_medicine", "acupuncture", "hospital"]
+  },
+  {
+    "specialty_id": "sp_018",
+    "specialty_name": "Phục hồi chức năng",
+    "description": "Chuyên khoa phục hồi chức năng, vật lý trị liệu, điều trị sau tai biến, chấn thương",
+    "synonyms": [
+      "phục hồi chức năng",
+      "rehabilitation",
+      "vật lý trị liệu",
+      "physiotherapy",
+      "phục hồi sau tai biến",
+      "phục hồi sau chấn thương"
+    ],
+    "hospital_keywords": [
+      "phuc hoi chuc nang",
+      "1a",
+      "bach mai",
+      "chinh hinh"
+    ],
+    "symptoms": [
+      "yếu tay chân",
+      "khó vận động",
+      "đau mỏi",
+      "cứng khớp"
+    ],
+    "osm_tags": ["rehabilitation", "physiotherapy", "hospital"]
+  },
+  {
+    "specialty_id": "sp_019",
+    "specialty_name": "Cấp cứu",
+    "description": "Chuyên khoa cấp cứu,응급, tai nạn, chấn thương, ngộ độc, cấp cứu tim mạch",
+    "synonyms": [
+      "cấp cứu",
+      "emergency",
+      "응급",
+      "tai nạn",
+      "chấn thương",
+      "ngộ độc",
+      "cấp cứu tim mạch",
+      "cấp cứu ngoại khoa"
+    ],
+    "hospital_keywords": [
+      "115",
+      "cho ray",
+      "viet duc",
+      "bach mai",
+      "108",
+      "103"
+    ],
+    "symptoms": [
+      "tai nạn",
+      "chấn thương",
+      "ngộ độc",
+      "đau ngực dữ dội",
+      "khó thở nặng",
+      "chảy máu nhiều"
+    ],
+    "osm_tags": ["emergency", "trauma", "hospital"]
+  },
+  {
+    "specialty_id": "sp_020",
+    "specialty_name": "Lão khoa",
+    "description": "Chuyên khoa điều trị bệnh người già, lão khoa, sa sút trí tuệ, Alzheimer",
+    "synonyms": [
+      "lão khoa",
+      "geriatrics",
+      "người già",
+      "người cao tuổi",
+      "sa sút trí tuệ",
+      "alzheimer",
+      "parkinson"
+    ],
+    "hospital_keywords": [
+      "lao khoa",
+      "thong nhat",
+      "bach mai"
+    ],
+    "symptoms": [
+      "sa sút trí tuệ",
+      "quên",
+      "run tay",
+      "khó vận động",
+      "mệt mỏi"
+    ],
+    "osm_tags": ["geriatrics", "hospital"]
+  },
+  {
+    "specialty_id": "sp_021",
+    "specialty_name": "Bỏng",
+    "description": "Chuyên khoa điều trị bỏng, bỏng nặng, bỏng hóa chất, bỏng điện",
+    "synonyms": [
+      "bỏng",
+      "burn",
+      "bỏng nặng",
+      "bỏng hóa chất",
+      "bỏng điện",
+      "bỏng nước sôi"
+    ],
+    "hospital_keywords": [
+      "bong",
+      "cho ray",
+      "le huu trac",
+      "103"
+    ],
+    "symptoms": [
+      "bỏng",
+      "da bỏng",
+      "phồng rộp",
+      "đau bỏng"
+    ],
+    "osm_tags": ["burn_center", "hospital"]
+  },
+  {
+    "specialty_id": "sp_022",
+    "specialty_name": "Huyết học - Truyền máu",
+    "description": "Chuyên khoa điều trị bệnh máu, thiếu máu, bạch cầu, truyền máu",
+    "synonyms": [
+      "huyết học",
+      "truyền máu",
+      "hematology",
+      "bệnh máu",
+      "thiếu máu",
+      "bạch cầu",
+      "xuất huyết"
+    ],
+    "hospital_keywords": [
+      "huyet hoc",
+      "truyen mau",
+      "cho ray",
+      "bach mai"
+    ],
+    "symptoms": [
+      "thiếu máu",
+      "mệt mỏi",
+      "chảy máu khó cầm",
+      "xuất huyết"
+    ],
+    "osm_tags": ["hematology", "blood_bank", "hospital"]
+  },
+  {
+    "specialty_id": "sp_023",
+    "specialty_name": "Dinh dưỡng",
+    "description": "Chuyên khoa dinh dưỡng, suy dinh dưỡng, béo phì, tư vấn dinh dưỡng",
+    "synonyms": [
+      "dinh dưỡng",
+      "nutrition",
+      "suy dinh dưỡng",
+      "béo phì",
+      "tư vấn dinh dưỡng",
+      "chế độ ăn"
+    ],
+    "hospital_keywords": [
+      "dinh duong",
+      "nhi dong"
+    ],
+    "symptoms": [
+      "suy dinh dưỡng",
+      "gầy yếu",
+      "béo phì",
+      "thiếu chất"
+    ],
+    "osm_tags": ["nutrition", "hospital"]
+  },
+  {
+    "specialty_id": "sp_024",
+    "specialty_name": "Tiêm chủng - Vắc xin",
+    "description": "Chuyên khoa tiêm chủng, vắc xin, phòng bệnh, tiêm phòng",
+    "synonyms": [
+      "tiêm chủng",
+      "vắc xin",
+      "vaccination",
+      "tiêm phòng",
+      "phòng bệnh",
+      "vaccine"
+    ],
+    "hospital_keywords": [
+      "nhi dong",
+      "pasteur",
+      "vnvc"
+    ],
+    "symptoms": [],
+    "osm_tags": ["vaccination", "immunization", "hospital"]
+  },
+  {
+    "specialty_id": "sp_025",
+    "specialty_name": "Nam khoa",
+    "description": "Chuyên khoa nam khoa, sức khỏe nam giới, yếu sinh lý, vô sinh nam",
+    "synonyms": [
+      "nam khoa",
+      "andrology",
+      "sức khỏe nam giới",
+      "yếu sinh lý",
+      "vô sinh nam",
+      "rối loạn cương dương"
+    ],
+    "hospital_keywords": [
+      "binh dan",
+      "viet duc",
+      "dai hoc y ha noi",
+      "tu du"
+    ],
+    "symptoms": [
+      "yếu sinh lý",
+      "rối loạn cương",
+      "vô sinh",
+      "đau tinh hoàn"
+    ],
+    "osm_tags": ["andrology", "urology", "hospital"]
+  }
+]

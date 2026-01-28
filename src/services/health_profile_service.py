@@ -171,6 +171,28 @@ class HealthProfileService:
         # Cập nhật thời gian sửa đổi
         profile.updated_at = datetime.utcnow()
         
+        # 3. TẠO PHÂN TÍCH TỰ ĐỘNG TỪ AI
+        # Chỉ tạo phân tích nếu có đủ thông tin cơ bản (chiều cao, cân nặng)
+        if profile.height and profile.weight:
+            try:
+                from src.services.health_analysis_service import health_analysis_service
+                
+                logger.info(f"Generating AI analysis for user {user_id}...")
+                
+                # Tạo phân tích tổng hợp
+                analysis_result = health_analysis_service.generate_comprehensive_analysis(user_id)
+                
+                if analysis_result.get('success') and analysis_result.get('ai_insights'):
+                    profile.ai_analysis = analysis_result['ai_insights']
+                    logger.info(f"✓ AI analysis generated successfully for user {user_id}")
+                else:
+                    logger.warning(f"Could not generate AI analysis: {analysis_result.get('message')}")
+                    
+            except Exception as e:
+                # Không fail toàn bộ request nếu AI analysis lỗi
+                logger.error(f"Error generating AI analysis: {e}", exc_info=True)
+                profile.ai_analysis = None
+        
         # 4. LƯU VÀO DATABASE
         db.session.commit()
         

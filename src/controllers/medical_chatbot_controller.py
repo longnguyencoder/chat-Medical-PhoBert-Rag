@@ -43,7 +43,8 @@ chat_response = medical_chatbot_ns.model('MedicalChatResponse', {
     'conversation_id': fields.Integer(description='ID of the conversation'),  # ID cuộc trò chuyện
     'extraction': fields.Raw(description='Extracted medical features'),  # Thông tin trích xuất (triệu chứng, thuốc...)
     'search_results': fields.Raw(description='Relevant search results'),  # Kết quả tìm kiếm từ DB
-    'sources': fields.Raw(description='Top sources used for answer')  # Nguồn tài liệu tham khảo
+    'sources': fields.Raw(description='Top sources used for answer'),  # Nguồn tài liệu tham khảo
+    'map_data': fields.Raw(description='List of hospitals with coordinates for map display') # Dữ liệu bản đồ (nếu có)
 })
 
 # Model cho 1 tin nhắn trong lịch sử

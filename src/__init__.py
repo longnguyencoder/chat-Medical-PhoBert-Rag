@@ -78,6 +78,7 @@ def create_app():
     from src.controllers.admin_controller import admin_ns  # Admin statistics API
     from src.controllers.health_profile_controller import health_profile_ns  # Health Profile API
     from src.controllers.medication_controller import medication_ns  # Medication Reminder API
+    from src.controllers.medical_report_controller import medical_report_ns # Medical Report Analysis API
     
     api.add_namespace(auth_ns, path='/api/auth')
     api.add_namespace(medical_chatbot_ns, path='/api/medical-chatbot')
@@ -86,6 +87,7 @@ def create_app():
     api.add_namespace(admin_ns, path='/api/admin')  # Admin statistics endpoints
     api.add_namespace(health_profile_ns, path='/api/health-profile')  # Health Profile endpoints
     api.add_namespace(medication_ns, path='/api/medication')  # Medication Reminder endpoints
+    api.add_namespace(medical_report_ns, path='/api/medical-report') # Medical Report Analysis endpoints
     
     with app.app_context():
         db.create_all()

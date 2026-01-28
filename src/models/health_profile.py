@@ -96,6 +96,12 @@ class HealthProfile(db.Model):
         comment='Tiền sử gia đình (text tự do). VD: "Bố bị tiểu đường, mẹ bị cao huyết áp"'
     )
     
+    ai_analysis = db.Column(
+        db.Text,
+        nullable=True,
+        comment='Phân tích sức khỏe tự động từ AI. Được tạo khi user cập nhật hồ sơ.'
+    )
+    
     # ========================================================================
     # METADATA
     # ========================================================================
@@ -215,6 +221,7 @@ class HealthProfile(db.Model):
             'chronic_conditions': self.get_chronic_conditions_list(),
             'medications': self.get_medications_list(),
             'family_history': self.family_history,
+            'ai_analysis': self.ai_analysis,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

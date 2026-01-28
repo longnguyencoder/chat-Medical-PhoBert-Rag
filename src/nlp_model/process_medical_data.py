@@ -88,7 +88,6 @@ def process_medical_data():
         
         # Path to medical_data.csv
         disease_csv_path = os.path.join(workspace_root, 'src', 'scape', 'medical_data.csv')
-        qa_csv_path = os.path.join(workspace_root, 'src', 'scape', 'medical_qa.csv')
         
         # Read disease data
         logger.info(f"Loading disease data from: {disease_csv_path}")
@@ -113,11 +112,14 @@ def process_medical_data():
         df_disease['doc_type'] = 'disease'
         
         # Read Q&A data (if exists)
+        qa_csv_path = os.path.join(workspace_root, 'src', 'scape', 'test.csv')  # Prioritize large dataset
+        
         all_documents = []
         all_ids = []
         all_metadatas = []
         
         # Add disease documents
+        logger.info("Preparing disease documents...")
         for _, row in df_disease.iterrows():
             all_documents.append(row['document'])
             all_ids.append(f"disease_{row['id']}")
@@ -131,32 +133,61 @@ def process_medical_data():
                 'doc_type': 'disease'
             })
         
+        logger.info(f"Prepared {len(all_documents)} disease documents")
+        
         # Add Q&A documents if file exists
         if os.path.exists(qa_csv_path):
             logger.info(f"Loading Q&A data from: {qa_csv_path}")
-            df_qa = pd.read_csv(qa_csv_path, encoding='utf-8')
+            # Try reading with different encodings if utf-8 fails
+            try:
+                df_qa = pd.read_csv(qa_csv_path, encoding='utf-8')
+            except UnicodeDecodeError:
+                logger.warning("UTF-8 failed, trying UTF-16...")
+                df_qa = pd.read_csv(qa_csv_path, encoding='utf-16')
+                
             logger.info(f"Loaded {len(df_qa)} Q&A records")
             
-            for _, row in df_qa.iterrows():
-                question = clean_text(row['question'])
-                answer = clean_text(row['answer'])
-                disease_name = clean_text(row.get('disease_name', ''))
+            # Fill NaN values
+            df_qa = df_qa.fillna('')
+            
+            logger.info("Processing Q&A records...")
+            for idx, row in df_qa.iterrows():
+                if idx % 500 == 0:
+                    logger.info(f"  Processed {idx}/{len(df_qa)} Q&A records...")
+                    
+                question = clean_text(str(row.get('question', '')))
+                answer = clean_text(str(row.get('answer', '')))
+                link = str(row.get('link', '')).strip()
+                
+                # Append source link to answer if available
+                if link and link.lower() != 'nan':
+                     answer += f" (Nguồn: {link})"
+                
+                disease_name = "General" 
                 
                 # Create Q&A document
                 qa_doc = f"Câu hỏi: {question}\n\nTrả lời: {answer}"
                 
+                # Use 'id' from CSV if available, else generate index-based ID
+                qa_id = str(row.get('id', idx + 1000)) 
+                
                 all_documents.append(qa_doc)
-                all_ids.append(f"qa_{row['id']}")
+                all_ids.append(f"qa_{qa_id}")
                 all_metadatas.append({
-                    'id': str(row['id']),
+                    'id': qa_id,
                     'question': question,
                     'answer': answer,
                     'disease_name': disease_name,
-                    'category': str(row.get('category', '')),
-                    'doc_type': 'qa'
+                    'category': 'General',
+                    'doc_type': 'qa',
+                    'source_link': link
                 })
+            
+            logger.info(f"Finished processing {len(df_qa)} Q&A records")
         else:
-            logger.info("No Q&A file found, skipping Q&A data")
+            logger.warning(f"Q&A file not found at: {qa_csv_path}")
+        
+        logger.info(f"Total documents prepared: {len(all_documents)}")
         
         # Initialize ChromaDB
         chroma_db_path = os.path.join(workspace_root, 'src', 'nlp_model', 'data', 'chroma_db')
@@ -166,13 +197,14 @@ def process_medical_data():
         # Initialize PhoBERT
         logger.info("Initializing PhoBERT embedding function...")
         phobert_ef = PhoBERTEmbeddingFunction()
+        logger.info("PhoBERT initialized successfully")
         
         # Delete old collection
         try:
             chroma_client.delete_collection("medical_collection")
             logger.info("Deleted old medical_collection")
-        except:
-            logger.info("medical_collection does not exist, creating new one")
+        except Exception as e:
+            logger.info(f"medical_collection does not exist or error deleting: {e}")
         
         # Create new collection
         logger.info("Creating new medical_collection...")
@@ -181,18 +213,33 @@ def process_medical_data():
             embedding_function=phobert_ef,
             metadata={"description": "Medical knowledge base with diseases and Q&A"}
         )
+        logger.info("Collection created successfully")
         
-        # Add all documents to collection
+        # Add all documents to collection in batches
         logger.info(f"Adding {len(all_documents)} documents to ChromaDB...")
-        collection.add(
-            ids=all_ids,
-            documents=all_documents,
-            metadatas=all_metadatas
-        )
+        
+        batch_size = 100
+        for i in range(0, len(all_documents), batch_size):
+            batch_end = min(i + batch_size, len(all_documents))
+            logger.info(f"  Adding batch {i//batch_size + 1}/{(len(all_documents)-1)//batch_size + 1} (docs {i+1}-{batch_end})...")
+            
+            try:
+                collection.add(
+                    ids=all_ids[i:batch_end],
+                    documents=all_documents[i:batch_end],
+                    metadatas=all_metadatas[i:batch_end]
+                )
+                logger.info(f"  Batch {i//batch_size + 1} added successfully")
+            except Exception as e:
+                logger.error(f"  Error adding batch {i//batch_size + 1}: {str(e)}")
+                raise
         
         # Verify
         count = collection.count()
         logger.info(f"✓ Successfully saved {count} records to ChromaDB")
+        
+        if count != len(all_documents):
+            logger.error(f"WARNING: Expected {len(all_documents)} but got {count} in ChromaDB!")
         
         # Print summary
         disease_count = len(df_disease)

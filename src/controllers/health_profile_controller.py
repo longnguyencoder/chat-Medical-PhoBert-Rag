@@ -263,3 +263,126 @@ class HealthProfileSummary(Resource):
         except Exception as e:
             logger.error(f"Error getting profile summary: {e}", exc_info=True)
             return {'message': f'Internal server error: {str(e)}'}, 500
+
+
+@health_profile_ns.route('/analysis')
+class HealthProfileAnalysis(Resource):
+    """
+    Endpoint phân tích tổng quan sức khỏe dựa trên hồ sơ.
+    Bao gồm: BMI analysis, chronic conditions analysis, overall health status.
+    """
+    
+    @health_profile_ns.response(200, 'Success - Phân tích thành công')
+    @health_profile_ns.response(404, 'Profile not found - Chưa có hồ sơ')
+    @health_profile_ns.response(401, 'Unauthorized - Cần JWT token')
+    @health_profile_ns.doc(security='Bearer')
+    @token_required
+    def get(self, current_user):
+        """
+        Phân tích tổng quan sức khỏe của user.
+        
+        Trả về:
+        - Phân tích BMI (chỉ số, phân loại, đánh giá, lời khuyên)
+        - Phân tích bệnh mãn tính (nếu có)
+        - Đánh giá tổng quan tình trạng sức khỏe
+        """
+        try:
+            from src.services.health_analysis_service import health_analysis_service
+            
+            user_id = current_user['user_id']
+            
+            # Lấy hồ sơ
+            profile = health_profile_service.get_profile(user_id)
+            
+            if not profile:
+                return {
+                    'message': 'Health profile not found. Please create one first.',
+                    'user_id': user_id
+                }, 404
+            
+            # Phân tích BMI
+            bmi_analysis = health_analysis_service.analyze_bmi(profile)
+            
+            # Phân tích bệnh mãn tính
+            chronic_analysis = health_analysis_service.analyze_chronic_conditions(profile)
+            
+            # Đánh giá tổng quan
+            overall_status = 'good'
+            if bmi_analysis['category'] in ['obese', 'underweight']:
+                overall_status = 'needs_attention'
+            elif bmi_analysis['category'] == 'overweight' or len(chronic_analysis) > 0:
+                overall_status = 'moderate'
+            
+            return {
+                'user_id': user_id,
+                'bmi': bmi_analysis,
+                'chronic_conditions_analysis': chronic_analysis,
+                'overall_health_status': overall_status,
+                'message': 'Phân tích sức khỏe thành công'
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error analyzing health profile: {e}", exc_info=True)
+            return {'message': f'Internal server error: {str(e)}'}, 500
+
+
+@health_profile_ns.route('/recommendations')
+class HealthProfileRecommendations(Resource):
+    """
+    Endpoint tạo lời khuyên chi tiết về chế độ ăn uống, nghỉ ngơi, tập luyện.
+    Sử dụng AI để tạo lời khuyên cá nhân hóa.
+    """
+    
+    @health_profile_ns.response(200, 'Success - Tạo lời khuyên thành công')
+    @health_profile_ns.response(404, 'Profile not found - Chưa có hồ sơ')
+    @health_profile_ns.response(401, 'Unauthorized - Cần JWT token')
+    @health_profile_ns.doc(security='Bearer')
+    @token_required
+    def get(self, current_user):
+        """
+        Tạo lời khuyên chi tiết về sức khỏe.
+        
+        Trả về:
+        - Lời khuyên về chế độ ăn uống (diet)
+        - Lời khuyên về nghỉ ngơi và giấc ngủ (rest)
+        - Lời khuyên về luyện tập thể dục (exercise)
+        - Phân tích tổng hợp từ AI (ai_insights)
+        """
+        try:
+            from src.services.health_analysis_service import health_analysis_service
+            
+            user_id = current_user['user_id']
+            
+            # Lấy hồ sơ
+            profile = health_profile_service.get_profile(user_id)
+            
+            if not profile:
+                return {
+                    'message': 'Health profile not found. Please create one first.',
+                    'user_id': user_id
+                }, 404
+            
+            # Tạo lời khuyên về chế độ ăn
+            diet_recommendations = health_analysis_service.generate_diet_recommendations(profile)
+            
+            # Tạo lời khuyên về nghỉ ngơi
+            rest_recommendations = health_analysis_service.generate_rest_recommendations(profile)
+            
+            # Tạo lời khuyên về tập luyện
+            exercise_recommendations = health_analysis_service.generate_exercise_recommendations(profile)
+            
+            # Tạo phân tích tổng hợp với AI
+            comprehensive_analysis = health_analysis_service.generate_comprehensive_analysis(user_id)
+            
+            return {
+                'user_id': user_id,
+                'diet': diet_recommendations,
+                'rest': rest_recommendations,
+                'exercise': exercise_recommendations,
+                'ai_insights': comprehensive_analysis.get('ai_insights'),
+                'message': 'Tạo lời khuyên thành công'
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error generating recommendations: {e}", exc_info=True)
+            return {'message': f'Internal server error: {str(e)}'}, 500

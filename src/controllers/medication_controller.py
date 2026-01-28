@@ -358,9 +358,9 @@ class MedicationLogList(Resource):
         """
         API quan trọng: Đánh dấu đã uống thuốc (Check-in).
         
-        Client gửi lên:
-        - log_id: ID của lần nhắc đó.
-        - status: 'taken' (đã uống) hoặc 'skipped' (bỏ qua).
+        Client có thể gửi lên theo 2 cách:
+        1. Cách chuẩn: log_id + status
+        2. Cách thay thế: schedule_id + scheduled_time + status (hệ thống sẽ tự tìm log_id)
         """
         try:
             user_id = current_user['user_id']
@@ -371,19 +371,110 @@ class MedicationLogList(Resource):
             logger.info(f"📦 Request data: {data}")
             
             # Hỗ trợ cả log_id (snake_case) và logId (camelCase từ Flutter)
-            log_id = data.get('log_id') or data.get('logId')
+            raw_log_id = data.get('log_id') or data.get('logId')
+            schedule_id = data.get('schedule_id') or data.get('scheduleId')
+            scheduled_time_str = data.get('scheduled_time') or data.get('scheduledTime')
             status = data.get('status')
             note = data.get('note')
             
-            if not data or not log_id or not status:
+            # CASE 1: Client gửi schedule_id + scheduled_time thay vì log_id
+            # Cần tìm log_id tương ứng từ schedule_id và scheduled_time
+            if not raw_log_id and schedule_id and scheduled_time_str:
+                logger.info(f"🔍 Client sent schedule_id={schedule_id} + scheduled_time={scheduled_time_str}, finding log_id...")
+                
+                from src.models.medication_log import MedicationLog
+                from datetime import datetime
+                import pytz
+                
+                # Parse scheduled_time (có thể là ISO format với milliseconds)
+                try:
+                    # Xử lý format: '2026-01-24T08:00:00.000' hoặc '2026-01-24T08:00:00'
+                    if '.' in scheduled_time_str:
+                        scheduled_time_str = scheduled_time_str.split('.')[0]  # Bỏ milliseconds
+                    
+                    # Parse thành datetime (giả sử client gửi theo múi giờ VN)
+                    scheduled_dt = datetime.fromisoformat(scheduled_time_str.replace('Z', '+00:00'))
+                    
+                    # Nếu không có timezone info, giả sử là VN timezone
+                    if scheduled_dt.tzinfo is None:
+                        vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+                        scheduled_dt = vietnam_tz.localize(scheduled_dt)
+                    
+                    # Tìm log tương ứng với schedule_id và scheduled_time
+                    # Cho phép sai lệch ±5 phút để xử lý trường hợp làm tròn thời gian
+                    from datetime import timedelta
+                    time_tolerance = timedelta(minutes=5)
+                    
+                    matching_log = MedicationLog.query.filter(
+                        MedicationLog.schedule_id == schedule_id,
+                        MedicationLog.user_id == user_id,
+                        MedicationLog.scheduled_time >= scheduled_dt - time_tolerance,
+                        MedicationLog.scheduled_time <= scheduled_dt + time_tolerance
+                    ).first()
+                    
+                    if matching_log:
+                        raw_log_id = matching_log.log_id
+                        logger.info(f"✅ Found matching log_id={raw_log_id}")
+                    else:
+                        logger.info(f"🔍 No pre-generated log found. Checking if we should create one on-the-fly...")
+                        
+                        from src.models.medication_schedule import MedicationSchedule
+                        schedule = MedicationSchedule.query.filter_by(
+                            schedule_id=schedule_id, 
+                            user_id=user_id
+                        ).first()
+                        
+                        if not schedule:
+                            return {'message': f'Medication schedule {schedule_id} not found or access denied'}, 404
+                        
+                        # Verify the time matches the schedule's time_of_day
+                        target_time_str = scheduled_dt.strftime('%H:%M')
+                        valid_times = schedule.get_time_of_day_list()
+                        
+                        if target_time_str not in valid_times:
+                            return {
+                                'message': f'Scheduled time {target_time_str} is not valid for this schedule',
+                                'valid_times': valid_times,
+                                'received': target_time_str
+                            }, 400
+                        
+                        # Create the log on-the-fly
+                        logger.info(f"✨ Creating new log for schedule {schedule_id} at {scheduled_dt}")
+                        new_log = MedicationLog(
+                            schedule_id=schedule_id,
+                            user_id=user_id,
+                            scheduled_time=scheduled_dt.astimezone(pytz.utc),
+                            status='pending'  # Will be updated to 'taken'/'skipped' below
+                        )
+                        db.session.add(new_log)
+                        db.session.flush() # To get the auto-incremented log_id
+                        raw_log_id = new_log.log_id
+                        
+                except Exception as parse_error:
+                    logger.error(f"❌ Error logic in on-the-fly creation: {parse_error}", exc_info=True)
+                    return {
+                        'message': f'Error processing request: {str(parse_error)}'
+                    }, 500
+            
+            # CASE 2: Validation - Phải có log_id hoặc (schedule_id + scheduled_time)
+            if not raw_log_id or not status:
                 logger.warning(f"❌ Missing required fields. Received data: {data}")
                 return {
-                    'message': 'log_id and status are required',
+                    'message': 'Required: (log_id OR schedule_id+scheduled_time) AND status',
                     'received_data': data,
-                    'required_fields': ['log_id (or logId)', 'status'],
+                    'required_fields': {
+                        'option_1': ['log_id', 'status'],
+                        'option_2': ['schedule_id', 'scheduled_time', 'status']
+                    },
                     'hint': 'Make sure to send JSON with Content-Type: application/json'
                 }, 400
             
+            # EXPLICIT TYPE CASTING: Ensure log_id is an integer
+            try:
+                log_id = int(raw_log_id)
+            except (ValueError, TypeError):
+                 return {'message': f'log_id must be an integer, got {type(raw_log_id)}: {raw_log_id}'}, 400
+
             if status not in ['taken', 'skipped']:
                 return {'message': 'status must be either "taken" or "skipped"'}, 400
             
@@ -396,7 +487,25 @@ class MedicationLogList(Resource):
                 log = medication_service.record_medication_skipped(log_id, user_id, note)
             
             if not log:
-                return {'message': 'Medication log not found'}, 404
+                # DEBUGGING 404: Find out WHY it failed
+                from src.models.medication_log import MedicationLog
+                debug_log = MedicationLog.query.get(log_id)
+                
+                reason = "Unknown error"
+                if not debug_log:
+                     reason = f"Log ID {log_id} does not exist in database"
+                     logger.error(f"❌ 404 REASON: {reason}")
+                elif debug_log.user_id != user_id:
+                     reason = f"Log ID {log_id} belongs to user {debug_log.user_id}, NOT current user {user_id}"
+                     logger.error(f"❌ 404 REASON: {reason}")
+                else:
+                     reason = f"Log {log_id} exists and belongs to user {user_id}, but service returned None (Logic Error)"
+                     logger.error(f"❌ 404 REASON: {reason}")
+                
+                return {
+                    'message': 'Medication log not found (or access denied)',
+                    'debug_reason': reason
+                }, 404
             
             return {
                 'message': f'Medication marked as {status}',

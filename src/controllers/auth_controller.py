@@ -144,7 +144,7 @@ class Login(Resource):
             return {'message': result}, 401  # 401 Unauthorized nếu sai pass/email
         
         return result  # Trả về JSON chứa token
-
+        
 @auth_ns.route('/forgot-password')  # Định nghĩa: POST /auth/forgot-password
 class ForgotPassword(Resource):
     @auth_ns.expect(forgot_password_model)
