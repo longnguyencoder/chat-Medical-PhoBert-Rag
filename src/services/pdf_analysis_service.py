@@ -73,13 +73,21 @@ YÊU CẦU:
 1. Trích xuất tất cả các chỉ số xét nghiệm (Blood test results).
 2. Với mỗi chỉ số, lấy: Tên (indicator), Kết quả (result), Trị số đối chiếu (reference_range), Đơn vị (unit).
 3. Thêm một trường nhận định (status) cho mỗi chỉ số: "Bình thường", "Cao", "Thấp", hoặc "Cần lưu ý".
-4. Cuối cùng, đưa ra một nhận định tổng quát (summary) và lời khuyên (advice) bằng tiếng Việt.
+4. Với mỗi chỉ số, thêm trường "explanation": Giải thích ngắn gọn ý nghĩa của kết quả này (VD: Nếu cao thì có nguy cơ gì, thấp thì sao, hoặc chỉ số này đại diện cho chức năng gì).
+5. Cuối cùng, đưa ra một nhận định tổng quát (summary) và lời khuyên (advice) bằng tiếng Việt.
 
 ĐỊNH DẠNG TRẢ VỀ (CHỈ TRẢ VỀ JSON):
 {
   "patient_info": { "name": "...", "date": "..." },
   "indicators": [
-    { "name": "...", "result": "...", "reference_range": "...", "unit": "...", "status": "..." }
+    { 
+      "name": "...", 
+      "result": "...", 
+      "reference_range": "...", 
+      "unit": "...", 
+      "status": "...",
+      "explanation": "Giải thích ý nghĩa lâm sàng (VD: Cao có thể do...)" 
+    }
   ],
   "summary": "...",
   "advice": "..."

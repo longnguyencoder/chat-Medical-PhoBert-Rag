@@ -160,10 +160,11 @@ If this appears to be a physical condition or symptom:
 4. Pattern or distribution
 
 OUTPUT FORMAT:
-Return a comma-separated list of descriptive keywords in Vietnamese.
-Example: "bảng kết quả, có số liệu, định dạng bảng, nhiều hàng dữ liệu"
+Return a comma-separated list of descriptive keywords in VIETNAMESE.
+Example: "bảng kết quả, có số liệu, định dạng bảng, nhiều hàng dữ liệu, sưng cổ, bướu cổ"
 
-Remember: You are describing for educational discussion, not diagnosing."""
+Remember: You are describing for educational discussion, not diagnosing.
+Output MUST be in Vietnamese."""
                         },
                         {
                             "type": "image_url",
@@ -699,7 +700,9 @@ def generate_natural_response(
     extracted_features: Dict[str, Any],
     conversation_id: Optional[int] = None,
     user_name: Optional[str] = None,
-    image_base64: Optional[str] = None
+    image_base64: Optional[str] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Sinh câu trả lời tự nhiên bằng GPT-4o, kết hợp:
@@ -826,16 +829,20 @@ Bạn có quyền truy cập vào các công cụ (tools) để CHỦ ĐỘNG h�
 
 **Tool 2: tim_benh_vien_gan_nhat**
 - Tìm bệnh viện gần user (cần vị trí GPS)
-- Gọi khi user cần đi khám hoặc hỏi về bệnh viện
+- 🔴 QUY TẮC TỐI THƯỢNG: Khi sử dụng tool này, bạn PHẢI sử dụng TOÀN BỘ chuỗi văn bản (string) trả về từ tool mà KHÔNG ĐƯỢC THAY ĐỔI DÙ CHỈ MỘT DẤU CHẤM.
+- ❌ KHÔNG tự ý tóm tắt, KHÔNG tự ý tạo danh sách mới, KHÔNG dùng bullet points của riêng bạn.
+- ✅ CÁCH LÀM: Copy y nguyên đoạn văn bản từ tool và dán vào câu trả lời của bạn.
+- ✅ ƯU TIÊN TUYỆT ĐỐI: Bệnh viện lớn, uy tín luôn được Backend xếp lên đầu danh sách, bạn chỉ việc hiển thị nó.
 
 {health_profile_context if health_profile_context else ""}
 
 CÁCH TRẢ LỜI:
 {greeting_instruction}
 - Trả lời DỰA TRÊN nội dung từ [Nguồn]
-- Nếu nguồn có "Câu trả lời" gốc → Dùng nội dung đó
-- Chia thành 2-3 đoạn ngắn, dùng bullet points (•)
-- Giọng điệu thân thiện, không gây hoảng loạn
+- 🔴 QUY TẮC BẮT BUỘC: Nếu bạn gọi tool `tim_benh_vien_gan_nhat`, bạn PHẢI in ra câu trả lời của tool đó một cách NGUYÊN VĂN (Verbatim). 
+- ❌ KHÔNG được tóm tắt, KHÔNG dùng bullet points (•) của bạn, KHÔNG được tự ý viết lại.
+- Trình tự trình bày: 1. Câu chào -> 2. PHẦN TRẢ LỜI CỦA TOOL (Dán 100% nguyên văn) -> 3. Lời khuyên kèm theo.
+- Giọng điệu thân thiện, không gây hoảng loạn.
 
 LUÔN KHUYẾN CÁO ĐI KHÁM BÁC SĨ NẾU:
 • Triệu chứng kéo dài > 3 ngày
@@ -861,24 +868,63 @@ You are NOT diagnosing patients. You are describing images for educational discu
 📋 YOUR TASK: Describe what you observe in the image to help the user learn and understand.
 
 APPROACH FOR MEDICAL DOCUMENTS (Lab Results, Test Reports, etc.):
-a. Frame your response as: "Để giúp bạn hiểu tài liệu này từ góc độ học tập, tôi quan sát thấy..."
-b. Describe the document structure: "Đây có vẻ là một [loại tài liệu], có các phần..."
-c. List visible categories/sections: "Tôi thấy các chỉ số như [tên chỉ số], với giá trị..."
-d. If values are visible, describe them neutrally: "Chỉ số X có giá trị Y, trong khi tham chiếu là Z"
-e. Explain terminology: "Thuật ngữ ABC thường được dùng để chỉ..."
-f. ALWAYS end with: "Để hiểu chính xác ý nghĩa lâm sàng, bạn cần trao đổi với bác sĩ điều trị."
+Please provide a structured response in Vietnamese using Markdown, adhering to this EXACT format:
+
+1. 📋 **Thông tin chung**:
+   - [Summary of document type and date if available]
+
+2. 🔍 **Các chỉ số chính**:
+   - List key indicators grouped by category (e.g., Blood Count, Liver Function).
+   - **IMPORTANT:** Explain abbreviations in parentheses.
+   - Format: • **[Indicator Name] ([Explanation])**: [Value] ([Status: High/Low/Normal])
+   - Example: • **Hemoglobin (HGB - Huyết sắc tố)**: 9.5 g/dL (Thấp)
+
+3. 💡 **Giải thích sơ bộ**:
+   - Group findings by condition (e.g., Anemia, Infection).
+   - Explain what the abnormal indicators suggest in educational terms.
+   - Example: • **Thiếu máu**: Chỉ số HGB và RBC thấp có thể chỉ ra tình trạng thiếu máu.
+
+4. 🛠️ **Khuyến nghị**:
+   - [General educational advice and questions to ask the doctor]
+
+⚠️ IMPORTANT:
+- ALWAYS end with: "Để hiểu chính xác ý nghĩa lâm sàng, bạn cần trao đổi với bác sĩ điều trị."
+
+### 📊 Bảng Chỉ Số (Tham Khảo)
+| Chỉ số (Indicator) | Giá trị (Value) | Trạng thái (Status) | Ý nghĩa & Phân Tích (Meaning & Analysis) |
+|---|---|---|---|
+| [Name] | [Value] | [Normal/High/Low] | [Explain WHAT this indicator is and WHY it might be high/low based on general medical knowledge. Do not just say "High". Example: "Cholesterol cao có thể làm tăng nguy cơ tim mạch..."] |
+
+### 💡 Đánh Giá & Lời Khuyên (Góc độ học tập)
+- **Giải thích tổng quan:** [Synthesize the findings smoothly]
+- **Khuyến nghị:** [General educational advice: Diet, exercise, lifestyle changes relative to the findings]
+- **Câu hỏi cho bác sĩ:** [Suggest specific questions, e.g., "Tôi có cần dùng thuốc hạ mỡ máu không?"]
+
+⚠️ IMPORTANT:
+- **CRITICAL:** The "Ý nghĩa & Phân tích" column must be DETAILED. Explain what the indicator represents.
+- If a value is abnormal (High/Low), mark Status with 🔴 or ⚠️ and explain potential causes/implications in the last column.
+- ALWAYS end with: "Để hiểu chính xác ý nghĩa lâm sàng, bạn cần trao đổi với bác sĩ điều trị."
+
+
 
 APPROACH FOR PHYSICAL SYMPTOMS (Skin, Wounds, etc.):
-a. Describe visual characteristics: "Từ hình ảnh, tôi quan sát thấy [màu sắc, hình dạng, kích thước]..."
-b. Compare with database: "Đặc điểm này có điểm tương đồng với [thông tin từ nguồn]..."
-c. Educational context: "Trong y học, các đặc điểm như vậy thường được mô tả là..."
-d. NEVER say: "Tôi không thể phân tích" or "I can't assist"
-e. INSTEAD say: "Dựa trên quan sát hình ảnh cho mục đích học tập, tôi thấy..."
+Please provide a structured response in **VIETNAMESE** (Tiếng Việt) using Markdown:
+a. **Mô tả hình ảnh**: "Từ hình ảnh, tôi quan sát thấy [màu sắc, hình dạng, kích thước]..."
+b. **So sánh y học (Medical Context)**: "Đặc điểm này có điểm tương đồng với [thông tin từ nguồn]..."
+c. **Thông tin giáo dục (Educational Info)**: "Trong y học, các đặc điểm như vậy thường được mô tả là..."
+d. **Khuyến nghị (Recommendation)**: "Bạn nên theo dõi thêm các triệu chứng như... và đi khám nếu..."
 
-✅ ALLOWED: Describing, explaining, educating, comparing with reference data
-❌ FORBIDDEN: Refusing to describe, saying "I'm an AI and can't help"
+⚠️ CRITICAL LANGUAGE INSTRUCTION:
+- You MUST answer in **VIETNAMESE** (Tiếng Việt).
+- If the user's input or the image content is in English, you MUST translate your analysis and response into Vietnamese.
+- Do NOT output English explanations.
+- NEVER say "I can't assist". Instead start with "Dựa trên quan sát..."
 
 🎯 REMEMBER: You're helping someone LEARN about health information, not replacing their doctor.
+
+⚠️ FINAL CHECK:
+- If the user's question or the image content is in English, you MUST TRANSLATE your entire response to VIETNAMESE.
+- Do not mix languages. The final output must be 100% Vietnamese.
 """
         
         
@@ -895,6 +941,10 @@ e. INSTEAD say: "Dựa trên quan sát hình ảnh cho mục đích học tập,
              except: pass
         
         user_prompt_parts.append(f"Câu hỏi hiện tại: {question}")
+        
+        if latitude and longitude:
+             user_prompt_parts.append(f"📍 VỊ TRÍ HIỆN TẠI CỦA USER: Vĩ độ {latitude}, Kinh độ {longitude}")
+             user_prompt_parts.append(f"⚠️ HÃY SỬ DỤNG tọa độ này khi gọi tool tim_benh_vien_gan_nhat")
         
         if conversation_summary:
             user_prompt_parts.append(f"【Tóm tắt cuộc trò chuyện trước đó】\n{conversation_summary}")

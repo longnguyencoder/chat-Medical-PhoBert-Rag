@@ -32,7 +32,9 @@ chat_request = medical_chatbot_ns.model('MedicalChatRequest', {
     'question': fields.String(required=True, description='User medical question in Vietnamese', example='Triệu chứng của cảm cúm là gì?'),
     'user_id': fields.Integer(description='User ID for chat history', example=1),
     'conversation_id': fields.Integer(description='Conversation ID to continue chat', example=1),
-    'image_base64': fields.String(description='Base64 encoded image string', required=False)
+    'image_base64': fields.String(description='Base64 encoded image string', required=False),
+    'latitude': fields.Float(description='User latitude (optional)', example=10.7769),
+    'longitude': fields.Float(description='User longitude (optional)', example=106.7009)
 })
 
 # Model cho response Chat (kết quả trả về)
@@ -71,7 +73,9 @@ class SecureMedicalChat(Resource):
     @medical_chatbot_ns.expect(medical_chatbot_ns.model('SecureChatRequest', {
         'question': fields.String(required=True, description='Câu hỏi y tế'),
         'conversation_id': fields.Integer(description='ID cuộc trò chuyện (tùy chọn)'),
-        'image_base64': fields.String(description='Ảnh base64 (tùy chọn)')
+        'image_base64': fields.String(description='Ảnh base64 (tùy chọn)'),
+        'latitude': fields.Float(description='Vĩ độ (tùy chọn)'),
+        'longitude': fields.Float(description='Kinh độ (tùy chọn)')
     }))
     @medical_chatbot_ns.response(200, 'Success')
     @medical_chatbot_ns.response(401, 'Unauthorized')
@@ -89,6 +93,8 @@ class SecureMedicalChat(Resource):
             question = data.get('question', '').strip()
             conversation_id = data.get('conversation_id')
             image_base64 = data.get('image_base64')
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
             
             # Validate: Phải có câu hỏi hoặc ảnh
             if not question and not image_base64:
@@ -183,7 +189,9 @@ class SecureMedicalChat(Resource):
                 extracted_features,
                 conversation_id=conversation.conversation_id,
                 user_name=user_name,
-                image_base64=image_base64
+                image_base64=image_base64,
+                latitude=latitude,
+                longitude=longitude
             )
             answer = response.get('answer')
             response_from_cache = response.get('from_cache', False)

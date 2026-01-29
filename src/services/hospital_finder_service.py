@@ -29,6 +29,37 @@ class HospitalFinderService:
         "https://maps.mail.ru/osm/tools/overpass/api/interpreter" # Russia Mirror
     ]
     
+    def __init__(self):
+        self.csv_hospitals = self._load_hcmc_csv()
+
+    def _load_hcmc_csv(self) -> List[Dict]:
+        """Loads custom HCMC hospital data from CSV."""
+        import csv
+        import os
+        hospitals = []
+        try:
+            # Assuming the file is in src/data/hcmc_hospitals.csv
+            file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'hcmc_hospitals.csv')
+            if os.path.exists(file_path):
+                with open(file_path, mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        # Convert types
+                        try:
+                            row['lat'] = float(row['lat'])
+                            row['lng'] = float(row['lng'])
+                            row['reputation_score'] = float(row['reputation_score'])
+                            row['avg_cost_score'] = float(row['avg_cost_score'])
+                        except (ValueError, TypeError):
+                            continue
+                        hospitals.append(row)
+                logger.info(f"✓ Loaded {len(hospitals)} custom hospitals from {file_path}")
+            else:
+                logger.warning(f"⚠ CSV file not found at {file_path}")
+        except Exception as e:
+            logger.error(f"✗ Error loading hospital CSV: {e}")
+        return hospitals
+
     SPECIALTY_KNOWLEDGE_BASE = {
         # =========================================================================
         # 1. TIM MẠCH (Cardiology)
@@ -147,16 +178,17 @@ class HospitalFinderService:
         # =========================================================================
         # 11. TAI MŨI HỌNG - MẮT - RĂNG HÀM MẶT
         # =========================================================================
-        'mat': ['mat', 'cho ray', 'tw', 'xanh pon', 'nga', 'sg'],
-        'can thi': ['mat'],
+        'mat': ['mat', 'mat sai gon', 'cho ray', 'tw', 'xanh pon', 'nga', 'sg'],
+        'can thi': ['mat', 'mat sai gon'],
         'duc thuy tinh the': ['mat'],
         'tai mui hong': ['tai mui hong', 'cho ray', 'bach mai'],
         'xoang': ['tai mui hong'],
         'thinh luc': ['tai mui hong'],
-        'rang ham mat': ['rang ham mat', 'cho ray', 'dai hoc y'],
+        'rang ham mat': ['rang ham mat', 'cho ray', 'dai hoc y', 'rang ham mat trung uong'],
         'nha khoa': ['rang ham mat', 'nha khoa'],
         'nho rang': ['rang ham mat'],
         'nieng rang': ['rang ham mat'],
+        'rang': ['rang ham mat'],
 
         # =========================================================================
         # 12. DA LIỄU - DỊ ỨNG (Dermatology)
@@ -217,15 +249,14 @@ class HospitalFinderService:
 
     TOP_TIER_HOSPITALS = [
         # TP.HCM
-        'cho ray', 'dai hoc y duoc', '115', 'nhan dan 115', 'thong nhat', 'gia dinh', 'nguyen tri phuong',
-        'tu du', 'hung vuong', 'nhi dong', 'nhiet doi', 'ung buou', 'binh dan', 'tai mui hong', 'mat', 'da lieu', 'chan thuong chinh hinh', 'pham ngoc thach', 'vien tim', 'truyen mau huyet hoc',
+        'cho ray', 'dai hoc y duoc', '115', 'nhan dan 115', 'thong nhat', 'gia dinh', 'nhan dan gia dinh', 'nguyen tri phuong', 'quan y 175', '175', 'trung vuong', 'nguyen trai', 'tu du', 'hung vuong', 'nhi dong', 'nhiet doi', 'benh nhiet doi', 'ung buou', 'binh dan', 'tai mui hong', 'mat', 'da lieu', 'chan thuong chinh hinh', 'pham ngoc thach', 'vien tim', 'truyen mau huyet hoc', 'rang ham mat trung uong', 'rang ham mat tp hcm', 'phuc hoi chuc nang', 'y hoc co truyen tp hcm', 'vien y duoc hoc dan toc',
         
         # Hà Nội
         'bach mai', 'viet duc', '108', 'quan y 103', 'huu nghi', 'e', 'xanh pon', 'thanh nhan', 'dong da',
-        'phu san trung uong', 'phu san ha noi', 'nhi trung uong', 'k', 'ung buou ha noi', 'noi tiet', 'tai mui hong trung uong', 'mat trung uong', 'da lieu trung uong', 'lao phoi', 'nhiet doi trung uong',
+        'phu san trung uong', 'phu san ha noi', 'nhi trung uong', 'k', 'ung buou ha noi', 'noi tiet', 'tai mui hong trung uong', 'mat trung uong', 'da lieu trung uong', 'lao phoi', 'nhiet doi trung uong', 'rang ham mat trung uong',
         
         # Hệ sinh thái tư nhân lớn/uy tín
-        'tam anh', 'vinmec', 'hoan my', 'hanh phuc', 'fv', 'xuyen a'
+        'tam anh', 'vinmec', 'hoan my', 'hanh phuc', 'fv', 'xuyen a', 'hong ngoc', 'thu cuc', 'phuong dong', 'viet phap'
     ]
 
     # Link đặt lịch khám / Website chính thức
@@ -250,7 +281,17 @@ class HospitalFinderService:
         'nhiet doi': 'https://medpro.vn/benh-vien-benh-nhiet-doi',
         'vien tim': 'https://medpro.vn/vien-tim',
         'gia dinh': 'https://medpro.vn/benh-vien-gia-dinh',
+        'nhan dan gia dinh': 'https://medpro.vn/benh-vien-nhan-dan-gia-dinh',
         'nguyen tri phuong': 'https://medpro.vn/benh-vien-nguyen-tri-phuong',
+        'quan y 175': 'https://medpro.vn/benh-vien-quan-y-175',
+        '175': 'https://medpro.vn/benh-vien-quan-y-175',
+        'trung vuong': 'https://medpro.vn/benh-vien-trung-vuong',
+        'nguyen trai': 'https://medpro.vn/benh-vien-nguyen-trai',
+        'nhi dong thanh pho': 'https://medpro.vn/benh-vien-nhi-dong-thanh-pho',
+        'tai mui hong tp hcm': 'https://medpro.vn/benh-vien-tai-mui-hong-tp-hcm',
+        'rang ham mat trung uong': 'https://medpro.vn/benh-vien-rang-ham-mat-trung-uong-tp-hcm',
+        'da lieu tp hcm': 'https://medpro.vn/benh-vien-da-lieu-tp-hcm',
+        'y hoc co truyen tp hcm': 'https://medpro.vn/benh-vien-y-hoc-co-truyen-tphcm',
         
         # --- Hà Nội ---
         'bach mai': 'https://medpro.vn/benh-vien-bach-mai',
@@ -314,22 +355,18 @@ class HospitalFinderService:
             mapbox_token = os.getenv('MAPBOX_ACCESS_TOKEN')
             if mapbox_token:
                 # Prepare search term
-                # Specialty might be a long string from RAG (e.g., "nhi, khoa nhi, trẻ em")
-                # Mapbox works best with short queries. We take the FIRST keyword.
                 primary_keyword = specialty.split(',')[0].strip() if specialty else ""
                 
                 search_term = "bệnh viện"
                 if primary_keyword:
                     search_term = f"bệnh viện {primary_keyword}"
                 
-                # Mapbox Geocoding API Request
-                # Use 'mapbox.places' endpoint
                 mapbox_url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{search_term}.json"
                 params = {
                     'access_token': mapbox_token,
                     'proximity': f"{longitude},{latitude}",
                     'types': 'poi',
-                    'limit': '10', # Max limit per request
+                    'limit': '10',
                     'language': 'vi'
                 }
                 
@@ -341,23 +378,19 @@ class HospitalFinderService:
                     if features:
                         logger.info(f"✓ Mapbox found {len(features)} locations.")
                         for f in features:
-                            # Convert Mapbox Feature -> "Pseudo" OSM Element
-                            # to reuse existing scoring logic
                             props = f.get('properties', {})
-                            center = f.get('center', [0, 0]) # [lon, lat]
+                            center = f.get('center', [0, 0])
                             
-                            # Construct tags
                             tags = {
                                 'name': f.get('text', ''),
                                 'name:vi': f.get('text_vi') or f.get('text', ''),
-                                'addr:full': f.get('place_name', ''), # Custom tag
+                                'addr:full': f.get('place_name', ''),
                                 'phone': props.get('tel'),
                                 'website': props.get('website'),
-                                'amenity': 'hospital', # Assume hospital context
+                                'amenity': 'hospital',
                                 'source': 'mapbox'
                             }
                             
-                            # Extract address components if available (simplified)
                             if 'place_name' in f:
                                 tags['addr:street'] = f['place_name']
                             
@@ -373,15 +406,11 @@ class HospitalFinderService:
         except Exception as e:
             logger.error(f"⚠️ Mapbox Error: {e}")
 
-        # If Mapbox found results, use them
         if mapbox_elements:
             elements = mapbox_elements
-            # Skip Overpass
         else:
-            # === OVERPASS FALLBACK (Secondary) ===
+            # === OVERPASS FALLBACK ===
             logger.info("ℹ️ Fallback to Overpass API...")
-            
-            # Query: Lấy nodes, ways VÀ RELATIONS
             query_body = f"""
             (
               node["amenity"~"hospital|clinic"](around:{radius},{latitude},{longitude});
@@ -392,195 +421,343 @@ class HospitalFinderService:
             """
             
             data = None
-            
-            # === RETRY MECHANISM ===
             for url in self.OVERPASS_URLS:
                 try:
                     full_query = f"[out:json][timeout:25];{query_body}"
-                    logger.info(f"🔍 Connecting to map server: {url}")
-                    
-                    response = requests.post(
-                        url, 
-                        data={'data': full_query},
-                        timeout=30, 
-                        headers={'User-Agent': 'MedicalChatbot/1.0'}
-                    )
+                    response = requests.post(url, data={'data': full_query}, timeout=30, headers={'User-Agent': 'MedicalChatbot/1.0'})
                     response.raise_for_status()
                     data = response.json()
-                    
-                    if 'elements' in data:
-                        break
-                        
+                    if 'elements' in data: break
                 except Exception as e:
-                    logger.warning(f"⚠️ Server {url} failed: {e}. Trying next...")
+                    logger.warning(f"⚠️ Server {url} failed: {e}")
                     continue
             
             if not data or 'elements' not in data:
-                return {
-                    'success': False, 
-                    'message': 'Hệ thống bản đồ đang quá tải. Vui lòng thử lại sau vài phút.', 
-                    'hospitals': []
-                }
-                
+                return {'success': False, 'message': 'Hệ thống bản đồ đang quá tải.', 'hospitals': []}
             elements = data.get('elements', [])
         
         if not elements:
-            return {'success': True, 'hospitals': [], 'message': 'Không tìm thấy bệnh viện nào trong khu vực.'}
+            elements = [] # Initialize as empty list to allow CSV injection
         
         hospitals = []
         seen_names = set()
-        
-        specialty_keywords = []
         search_keywords = []
-        rag_keywords = []  # NEW: Keywords from RAG
+        rag_keywords = []
         
         if specialty:
-            # === NEW: TRY RAG SEMANTIC SEARCH FIRST ===
             try:
                 from src.services.hospital_specialty_rag import hybrid_specialty_matching
                 rag_keywords = hybrid_specialty_matching(specialty, top_k=5)
                 search_keywords.extend(rag_keywords)
-                logger.info(f"✓ RAG found {len(rag_keywords)} specialty keywords: {rag_keywords[:5]}")
-            except Exception as e:
-                logger.warning(f"⚠ RAG failed, fallback to keyword matching: {e}")
+            except Exception: pass
             
-            # === EXISTING: FALLBACK KEYWORD MATCHING ===
             normalized_specialty = remove_accents(specialty.lower())
             for key, values in self.SPECIALTY_KNOWLEDGE_BASE.items():
                 if key in normalized_specialty or normalized_specialty in key:
                     search_keywords.extend(values)
             search_keywords.append(normalized_specialty)
-            
-            # Deduplicate
             search_keywords = list(set(search_keywords))
-            logger.info(f"Total keywords (RAG + fallback): {len(search_keywords)}")
 
+        # --- STEP 1: INJECT CSV HOSPITALS ---
+        # We always want our high-quality CSV data to be candidates.
+        # Logic: If it's a SUPER TIER hospital (Prestige >= 0.9), inject it even if far away
+        # for specific specialties. Otherwise, use the standard radius.
+        csv_candidates = []
+        for ch in self.csv_hospitals:
+            dist = self.calculate_distance(latitude, longitude, ch['lat'], ch['lng'])
+            
+            # SUPER TIER CHECK: Always include these regardless of distance if they match specialty keywords
+            is_super_tier = ch.get('reputation_score', 0) >= 0.9
+            
+            # Always include Southern Giants if specialty matches or if they are SUPER TIER
+            force_include = False
+            if specialty:
+                ch_specs = remove_accents(ch.get('specialties', '').lower())
+                spec_norm = remove_accents(specialty.lower())
+                if spec_norm in ch_specs or any(kw in ch_specs for kw in search_keywords):
+                    target_giants = [
+                        'Bệnh viện Chợ Rẫy', 'Bệnh viện Đại học Y Dược TP.HCM', 
+                        'Bệnh viện Nhân Dân 115', 'Bệnh viện Ung Bướu TP.HCM',
+                        'Bệnh viện Từ Dũ', 'Bệnh viện Nhi Đồng 1', 'Bệnh viện Nhi Đồng 2',
+                        'Bệnh viện Bình Dân', 'Bệnh viện Hùng Vương'
+                    ]
+                    if is_super_tier or any(giant in ch['name'] for giant in target_giants):
+                        force_include = True
+
+            if dist <= (radius / 1000.0) or force_include:
+                csv_candidates.append({
+                    'lat': ch['lat'],
+                    'lon': ch['lng'],
+                    'tags': {
+                        'name': ch['name'],
+                        'addr:full': ch['address'],
+                        'website': ch['booking_url'],
+                        'phone': ch.get('phone'),
+                        'source': 'csv_database'
+                    },
+                    'csv_data': ch
+                })
+
+        # Merge elements: CSV candidates first to ensure they are the ones "seen" if there are duplicates
+        elements = csv_candidates + elements
+
+        # Heuristic for Public Hospitals (Cheapest)
+        PUBLIC_HOSPITAL_KEYWORDS = ['cong cong', 'quan', 'huyen', 'thanh pho', 'trung uong', 'chinh phu', 'dan lap', 'nhan dan']
+        PRIVATE_HOSPITAL_KEYWORDS = ['quoc te', 'international', 'tu nhan', 'private', 'gia dinh', 'hanh phuc', 'vinmec', 'tam anh', 'fv', 'hoan my']
+        BLACKLIST_KEYWORDS = ['yoga', 'spa', 'massage', 'gym', 'the hinh', 'tiem thuoc', 'hieu thuoc', 'thuoc tay', 'kinh thuoc', 'mat kinh', 'kinh mat', 'tham my vien', 'beauty', 'skin clinic', 'da lieu']
 
         for element in elements:
             tags = element.get('tags', {})
             name = tags.get('name', tags.get('name:vi', ''))
             if not name: continue
             
-            if name in seen_names: continue
+            name_normalized = remove_accents(name.lower())
             
+            # Use unique ID or name to avoid duplicates
+            if name_normalized in seen_names: continue
+            seen_names.add(name_normalized)
+            
+            # Filter out non-medical or inappropriate results
+            if any(kw in name_normalized for kw in BLACKLIST_KEYWORDS):
+                continue
+            
+            # Special case: If specialty is NOT dermatology, blacklist skin clinics
+            current_is_dermatology = specialty and any(kw in remove_accents(specialty.lower()) for kw in ['da lieu', 'mun', 'da'])
+            if not current_is_dermatology:
+                if any(kw in name_normalized for kw in ['skin', 'da lieu', 'tham my']):
+                     continue
+
             lat = element.get('lat') or element.get('center', {}).get('lat')
             lon = element.get('lon') or element.get('center', {}).get('lon')
-            
             if not lat or not lon: continue
             
             distance = self.calculate_distance(latitude, longitude, lat, lon)
             
-            # === ENHANCED SCORING ===
-            priority_score = 0
-            match_reason = []
-            name_normalized = remove_accents(name.lower())
+            # Check for CSV match (if not already injected)
+            csv_data = element.get('csv_data')
+            if not csv_data:
+                for ch in self.csv_hospitals:
+                    if name_normalized == remove_accents(ch['name'].lower()):
+                        csv_data = ch
+                        break
+
+            # Classification
+            is_public = any(kw in name_normalized for kw in PUBLIC_HOSPITAL_KEYWORDS)
+            if 'phong kham' in name_normalized or 'tram y te' in name_normalized or 'bac si' in name_normalized:
+                is_public = False # Small clinics aren't the intended "public hospital" option
             
+            if any(kw in name_normalized for kw in ['quan ', 'huyen ', 'tinh ', 'trung uong']):
+                is_public = True
+
+            # Match Specialty keywords for priority
             is_specialty_match = False
-            is_semantic_match = False
+            match_reason = []
+            priority_score = 0
             
             if specialty:
-                # Check RAG semantic match first (higher priority)
-                for kw in rag_keywords:
-                    if kw in name_normalized:
-                        priority_score += 600  # Higher score for semantic match
-                        match_reason.append("Khớp chuyên khoa (AI)")
-                        is_semantic_match = True
-                        is_specialty_match = True
-                        break
-                
-                # If no semantic match, check traditional keyword match
-                if not is_semantic_match:
+                # 1. CSV Specialty Match (Highest Priority)
+                if csv_data and csv_data.get('specialties'):
+                    csv_specs = [remove_accents(s.strip().lower()) for s in csv_data['specialties'].split(',')]
+                    normalized_specialty_search = remove_accents(specialty.lower())
+                    for spec_kw in csv_specs:
+                        if normalized_specialty_search in spec_kw or spec_kw in normalized_specialty_search:
+                            priority_score += 5000 
+                            match_reason.append("⭐ Đặc biệt phù hợp (Dữ liệu uy tín)")
+                            is_specialty_match = True
+                            break
+
+                # 2. AI RAG Match
+                if not is_specialty_match:
+                    for kw in rag_keywords:
+                        if kw in name_normalized:
+                            priority_score += 2000 
+                            match_reason.append("⭐ Phù hợp chuyên khoa")
+                            is_specialty_match = True
+                            break
+                # 3. Knowledge Base Match
+                if not is_specialty_match:
                     for kw in search_keywords:
                         if kw in name_normalized:
-                            priority_score += 500
-                            match_reason.append("Đúng chuyên khoa")
+                            priority_score += 1500
+                            match_reason.append("✅ Khớp chuyên khoa")
                             is_specialty_match = True
                             break
             
-            if specialty and not is_specialty_match:
-                priority_score -= 1000 
+            # Prestige Scoring
+            is_top_tier = False
+            if csv_data:
+                # Use reputation score from CSV
+                if csv_data['reputation_score'] >= 0.8:
+                    is_top_tier = True
+            else:
+                # STRICT HEURISTIC for non-CSV data
+                # Only trust Bệnh viện (Hospitals), never clinics or stations
+                if 'benh vien' in name_normalized and any(top in name_normalized for top in self.TOP_TIER_HOSPITALS):
+                    is_top_tier = True
             
-            for top in self.TOP_TIER_HOSPITALS:
-                if top in name_normalized:
-                    priority_score += 100
-                    match_reason.append("Bệnh viện đầu ngành")
-                    break
+            if is_top_tier:
+                prestige_boost = 5000 if is_specialty_match else 2000
+                priority_score += prestige_boost
+                match_reason.append("🏛️ Bệnh viện lớn, uy tín đầu ngành")
+                
+                # Special "Southern Giant" Boost
+                target_giants = [
+                    'Chợ Rẫy', 'Đại học Y Dược', 'Nhân Dân 115', 'Ung Bướu',
+                    'Từ Dũ', 'Nhi Đồng', 'Bình Dân', 'Hùng Vương'
+                ]
+                if any(giant in name for giant in target_giants):
+                    priority_score += 2000
+                    if is_specialty_match: priority_score += 3000
+                    match_reason.append("🌟 Tuyến cuối trung ương/thành phố")
+            
+            # Penalize small clinics/stations to prevent them ranking as "Top Tier" unless match
+            if 'phong kham' in name_normalized or 'tram y te' in name_normalized:
+                priority_score -= 1500
                     
-            priority_score -= (distance * 10)
+            priority_score -= (distance * 5) # Reduced distance penalty even further for specialists
             
-            if tags.get('emergency') == 'yes': priority_score += 20
-            if tags.get('amenity') == 'hospital': priority_score += 10 
+            address = tags.get('addr:full') or ', '.join([tags.get(f'addr:{k}', '') for k in ['housenumber', 'street', 'district'] if tags.get(f'addr:{k}')]) or 'Đang cập nhật'
+            if csv_data: address = csv_data['address']
 
-            address_parts = []
-            if tags.get('addr:housenumber'): address_parts.append(tags['addr:housenumber'])
-            if tags.get('addr:street'): address_parts.append(tags['addr:street'])
-            if tags.get('addr:district'): address_parts.append(tags['addr:district'])
-            address = ', '.join(address_parts) if address_parts else 'Đang cập nhật'
-
-            # Website Lookup
             website = tags.get('website', tags.get('contact:website', ''))
+            if csv_data: website = csv_data['booking_url']
             if not website:
-                # Fallback to Known URLs
                 for k, v in self.KNOWN_HOSPITAL_URLS.items():
-                    # Chỉ match nếu key xuất hiện trọn vẹn (để tránh lỗi 'k' trong 'đa khoa')
-                    # Tuy nhiên, name_normalized là string dài, k là sub-string.
-                    # Cách fix: Đổi key 'k' thành 'benh vien k' ở trên dict.
                     if k in name_normalized:
                         website = v
                         break
+
+            # === Weighted Scoring (Revised with User Weights 0.5 / 0.3 / 0.2) ===
+            dist_score = 1.0 / (1.0 + distance)
+            
+            if csv_data:
+                prestige_val = csv_data['reputation_score']
+                cheapest_val = csv_data['avg_cost_score']
+            else:
+                # Estimate for unknown
+                prestige_val = 1.0 if is_top_tier else 0.0
+                cheapest_val = 0.85 if is_public else 0.4
+                # Small clinics get very low prestige
+                if 'phong kham' in name_normalized or 'tram y te' in name_normalized:
+                    prestige_val = 0.1
+                
+                # If specialty is mentioned but NO MATCH, zero out prestige
+                if specialty and not is_specialty_match:
+                    prestige_val = 0.0
+                    dist_score = dist_score * 0.1
+
+            total_weighted_score = (prestige_val * 0.5) + (dist_score * 0.3) + (cheapest_val * 0.2)
 
             hospitals.append({
                 'name': name,
                 'address': address,
                 'distance': distance,
                 'priority_score': priority_score,
+                'total_weighted_score': total_weighted_score,
                 'match_reasons': match_reason,
                 'phone': tags.get('phone', tags.get('contact:phone')),
                 'website': website,
                 'latitude': lat,
-                'longitude': lon
+                'longitude': lon,
+                'is_public': is_public,
+                'is_top_tier': is_top_tier,
+                'csv_id': csv_data.get('hospital_id') if csv_data else None
             })
-            seen_names.add(name)
         
         hospitals.sort(key=lambda x: x['priority_score'], reverse=True)
-        hospitals = hospitals[:limit]
+        
+        # Select Recommendation set
+        prestigious = next((h for h in hospitals if h['is_top_tier']), None)
+        nearest = min(hospitals, key=lambda x: x['distance']) if hospitals else None
+        cheapest = next((h for h in hospitals if h['is_public'] and h['priority_score'] > -500), None)
+        # fallback cheapest to just public if scoring too low
+        if not cheapest:
+            cheapest = next((h for h in hospitals if h['is_public']), None)
+
+        recommendations = {
+            'best_prestige': prestigious,
+            'nearest': nearest,
+            'cheapest': cheapest,
+            'best_overall': max(hospitals, key=lambda x: x['total_weighted_score']) if hospitals else None
+        }
         
         return {
             'success': True,
-            'hospitals': hospitals,
+            'hospitals': hospitals[:limit],
+            'recommendations': recommendations,
             'search_info': {'specialty': specialty}
         }
 
-    def format_hospitals_for_chatbot(self, hospitals: List[Dict]) -> str:
+    def format_hospitals_for_chatbot(self, search_result: Dict) -> str:
+        hospitals = search_result.get('hospitals', [])
+        recs = search_result.get('recommendations', {})
+        
         if not hospitals:
             return "Không tìm thấy bệnh viện phù hợp trong khu vực này."
             
-        result = f"🏥 **Danh sách Bệnh viện đề xuất**:\n\n"
+        result = "🏥 **KẾT QUẢ GỢI Ý BỆNH VIỆN TỐT NHẤT**\n\n"
+        
+        # PHẦN : KHUYÊN DÙNG HÀNG ĐẦU (Dựa trên trọng số 0.5 Uy tín - 0.35 Gần - 0.15 Rẻ)
+        best_overall = recs.get('best_overall')
+        if best_overall:
+            result += f"� **GỢI Ý HÀNG ĐẦU: {best_overall['name']}**\n"
+            
+            lat, lon = best_overall.get('latitude'), best_overall.get('longitude')
+            map_link = f"https://www.google.com/maps/dir/?api=1&destination={lat},{lon}" if lat and lon else f"https://www.google.com/maps/search/?api=1&query={best_overall['name'].replace(' ', '+')}"
+            website = best_overall.get('website')
+            
+            result += f"� [Xem bản đồ chỉ đường]({map_link})"
+            if website:
+                result += f" | [Đặt lịch / Website]({website})"
+            else:
+                search_query = f"dat lich kham {best_overall['name']}".replace(" ", "+")
+                result += f" | [Tìm đặt lịch (Google)](https://www.google.com/search?q={search_query})"
+            
+            result += f"\n*(Lý do: Đây là cơ sở có điểm đánh giá tổng hợp cao nhất về uy tín, vị trí và chi phí)*\n\n---\n\n"
+
+        # PHẦN 1: 3 Gợi ý Ưu tiên theo tiêu chí
+        if any(recs.values()):
+            result += "� **3 Lựa chọn tiêu biểu theo tiêu chí của bạn:**\n"
+            
+            if recs.get('best_prestige'):
+                h = recs['best_prestige']
+                result += f"- 🏆 **Uy tín nhất :** {h['name']} ({h['distance']}km)\n"
+            
+            if recs.get('nearest'):
+                h = recs['nearest']
+                if h != recs.get('best_prestige'):
+                    result += f"- 📍 **Gần bạn nhất :** {h['name']} ({h['distance']}km)\n"
+                else:
+                    result += f"- 📍 **Lựa chọn này cũng là nơi gần bạn nhất.**\n"
+            
+            if recs.get('cheapest'):
+                h = recs['cheapest']
+                if h != recs.get('best_prestige') and h != recs.get('nearest'):
+                    result += f"- 💰 **Chi phí hợp lí (Trọng số 0.2):** {h['name']} ({h['distance']}km)\n"
+                elif h == recs.get('best_prestige') and h != recs.get('nearest'):
+                     result += f"- 💰 **Lựa chọn này cũng thuộc nhóm bệnh viện công chi phí hợp lý.**\n"
+            
+            result += "\n---\n\n"
+
+        # Phần 2: Chi tiết danh sách
+        result += "🔍 **Chi tiết các cơ sở y tế gần đây:**\n\n"
         
         KNOWN_PHONES = {
-            'cho ray': '028 3855 4137',
-            'bach mai': '024 3869 3731',
-            '115': '028 3950 7506',
-            'nhi dong 1': '028 3829 5723',
-            'nhi dong 2': '028 3899 3498',
-            'tu du': '028 3829 5024',
-            'hung vuong': '028 3855 8532',
-             'viet duc': '024 3825 3531',
-             'da lieu': '028 3930 8131'
+            'cho ray': '028 3855 4137', 'bach mai': '024 3869 3731', '115': '028 3950 7506',
+            'nhi dong 1': '028 3829 5723', 'nhi dong 2': '028 3899 3498', 'tu du': '028 3829 5024',
+            'hung vuong': '028 3855 8532', 'viet duc': '024 3825 3531', 'da lieu': '028 3930 8131'
         }
         
-        for i, h in enumerate(hospitals, 1):
+        for i, h in enumerate(hospitals[:5], 1): # Chỉ show top 5 chi tiết để tránh quá dài
             icon = "🏥"
-            reasons = h.get('match_reasons', [])
-            if "Bệnh viện đầu ngành" in reasons: icon = "🏛️"
-            if "Đúng chuyên khoa" in reasons: icon = "⭐"
+            if h.get('is_top_tier'): icon = "🏛️"
             
             result += f"**{i}. {icon} {h['name']}**\n"
+            if h.get('match_reasons'):
+                result += f"   ✅ {', '.join(h['match_reasons'])}\n"
             
-            if reasons:
-                result += f"   ✅ {', '.join(reasons)}\n"
-            
-            result += f"   📍 {h['address']}\n"
+            result += f"   📍 Khoảng cách: ~{h['distance']}km\n"
+            result += f"   🏠 Địa chỉ: {h['address']}\n"
             
             phone = h.get('phone')
             if not phone:
@@ -588,10 +765,8 @@ class HospitalFinderService:
                      if k in remove_accents(h['name'].lower()):
                          phone = v
                          break
-            if phone:
-                result += f"   📞 {phone}\n"
+            if phone: result += f"   📞 {phone}\n"
             
-            # Booking Link
             website = h.get('website')
             if website:
                  result += f"   🌐 [Đặt lịch / Website]({website})\n"
@@ -599,20 +774,11 @@ class HospitalFinderService:
                  search_query = f"dat lich kham {h['name']}".replace(" ", "+")
                  result += f"   🌐 [Tìm đặt lịch (Google)](https://www.google.com/search?q={search_query})\n"
             
-            # Map Link (Option 1 Implementation)
-            lat = h.get('latitude')
-            lon = h.get('longitude')
-            if lat and lon:
-                map_link = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-            else:
-                # Fallback to name search if coords are missing
-                map_query = h['name'].replace(" ", "+")
-                map_link = f"https://www.google.com/maps/search/?api=1&query={map_query}"
-            
-            result += f"   🗺️ [Xem bản đồ chỉ đường]({map_link})\n"
-
-            result += "\n"
+            lat, lon = h.get('latitude'), h.get('longitude')
+            map_link = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}" if lat and lon else f"https://www.google.com/maps/search/?api=1&query={h['name'].replace(' ', '+')}"
+            result += f"   🗺️ [Xem bản đồ chỉ đường]({map_link})\n\n"
         
         return result
+
 
 hospital_finder_service = HospitalFinderService()

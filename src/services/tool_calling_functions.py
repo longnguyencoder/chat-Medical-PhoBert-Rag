@@ -147,7 +147,7 @@ def tim_benh_vien_gan_nhat(
             longitude=kinh_do,
             radius=int(ban_kinh_km * 1000),  # Convert km to meters
             specialty=chuyen_khoa,
-            limit=5
+            limit=10  # Increased from 5 to 10 to ensure we find prestigious hospitals
         )
         
         if not result['success']:
@@ -166,8 +166,8 @@ def tim_benh_vien_gan_nhat(
         if not hospitals:
             return "Không tìm thấy bệnh viện nào trong khu vực này. Vui lòng mở rộng bán kính tìm kiếm."
         
-        # Format kết quả cho GPT
-        formatted = hospital_finder_service.format_hospitals_for_chatbot(hospitals)
+        # Format kết quả cho GPT (Sử dụng cấu trúc gợi ý mới)
+        formatted = hospital_finder_service.format_hospitals_for_chatbot(result)
         
         return formatted
         

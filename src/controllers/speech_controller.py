@@ -88,6 +88,20 @@ chat_parser.add_argument(
     required=False,
     help='ID cuộc hội thoại (nếu muốn chat tiếp trong luồng cũ)'
 )
+chat_parser.add_argument(
+    'latitude',
+    location='form',
+    type=float,
+    required=False,
+    help='Vĩ độ'
+)
+chat_parser.add_argument(
+    'longitude',
+    location='form',
+    type=float,
+    required=False,
+    help='Kinh độ'
+)
 
 
 # ============================================================================
@@ -166,6 +180,8 @@ class SpeechToChat(Resource):
             audio_file = request.files['audio']
             language = request.form.get('language', 'vi')
             conversation_id = request.form.get('conversation_id', type=int)
+            latitude = request.form.get('latitude', type=float)
+            longitude = request.form.get('longitude', type=float)
             
             user_id = current_user['user_id']
             user_name = current_user.get('full_name')
@@ -229,7 +245,9 @@ class SpeechToChat(Resource):
                 search_results,
                 extracted_features,
                 conversation_id=conversation.conversation_id,
-                user_name=user_name
+                user_name=user_name,
+                latitude=latitude,
+                longitude=longitude
             )
             answer = response.get('answer')
             

@@ -65,7 +65,9 @@ def cached_response(
     extracted_features: Dict[str, Any],
     conversation_id: Optional[int] = None,
     user_name: Optional[str] = None,
-    image_base64: Optional[str] = None
+    image_base64: Optional[str] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Cached wrapper for response generation
@@ -77,22 +79,25 @@ def cached_response(
         extracted_features: Extracted medical features
         conversation_id: Optional conversation ID
         user_name: Optional user name
+        image_base64: Optional image data
+        latitude: Optional user latitude
+        longitude: Optional user longitude
         
     Returns:
         Generated response (from cache or fresh generation)
     """
     if not CACHE_ENABLED:
-        return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64)
+        return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
     
-    # Don't cache if image is provided (images are unique/complex)
-    if image_base64 is not None:
-         logger.debug("Skipping cache for image-based query")
-         return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64)
+    # Don't cache if image or location is provided (unique/complex contexts)
+    if image_base64 is not None or latitude is not None or longitude is not None:
+         logger.debug("Skipping cache for specialized query (image or location)")
+         return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
     
     # Don't cache if conversation_id is provided (personalized responses)
     if conversation_id is not None:
         logger.debug(f"Skipping cache for conversation-specific response")
-        result = response_func(question, search_results, extracted_features, conversation_id, user_name)
+        result = response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
         result['from_cache'] = False
         return result
     
@@ -108,7 +113,7 @@ def cached_response(
     
     # Cache miss - generate response
     logger.info(f"✗ Cache MISS for response: {question[:50]}...")
-    result = response_func(question, search_results, extracted_features, conversation_id, user_name)
+    result = response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
     
     # Cache the result
     if result.get('answer'):
