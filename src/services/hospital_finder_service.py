@@ -5,6 +5,7 @@ Service tìm kiếm bệnh viện sử dụng OpenStreetMap kết hợp Knowledg
 """
 
 import requests
+import re
 import logging
 from math import radians, cos, sin, asin, sqrt
 from typing import List, Dict, Optional
@@ -326,15 +327,28 @@ class HospitalFinderService:
     
     @staticmethod
     def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+        """
+        Calculate the Haversine distance between two points on the earth.
+        Returns distance in km.
+        """
         try:
-            lat1, lng1, lat2, lng2 = map(float, [lat1, lng1, lat2, lng2])
-            lat1, lng1, lat2, lng2 = map(radians, [lat1, lng1, lat2, lng2])
-            dlng = lng2 - lng1
-            dlat = lat2 - lat1
-            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlng/2)**2
+            # Explicit float conversion
+            lat1, lng1, lat2, lng2 = float(lat1), float(lng1), float(lat2), float(lng2)
+            
+            # Use 6371.0 km as the mean Earth radius
+            R = 6371.0
+            
+            phi1, phi2 = radians(lat1), radians(lat2)
+            dphi = radians(lat2 - lat1)
+            dlambda = radians(lng2 - lng1)
+            
+            a = sin(dphi/2)**2 + cos(phi1) * cos(phi2) * sin(dlambda/2)**2
             c = 2 * asin(sqrt(a))
-            return round(6371 * c, 2)
-        except Exception:
+            
+            dist = R * c
+            return round(dist, 2)
+        except Exception as e:
+            logger.error(f"Error in calculate_distance: {e}")
             return 999.0
     
     def find_nearby_hospitals(
@@ -451,12 +465,15 @@ class HospitalFinderService:
                 search_keywords.extend(rag_keywords)
             except Exception: pass
             
-            normalized_specialty = remove_accents(specialty.lower())
+            normalized_specialty = remove_accents(specialty.lower()).strip()
             for key, values in self.SPECIALTY_KNOWLEDGE_BASE.items():
-                if key in normalized_specialty or normalized_specialty in key:
+                if key == normalized_specialty or (len(normalized_specialty) > 3 and normalized_specialty in key):
                     search_keywords.extend(values)
             search_keywords.append(normalized_specialty)
-            search_keywords = list(set(search_keywords))
+            search_keywords = list(set([k for k in search_keywords if k]))
+            
+            logger.info(f"🔑 Search Keywords: {search_keywords}")
+            logger.info(f"🤖 RAG Keywords: {rag_keywords}")
 
         # --- STEP 1: INJECT CSV HOSPITALS ---
         # We always want our high-quality CSV data to be candidates.
@@ -577,11 +594,34 @@ class HospitalFinderService:
                 # 3. Knowledge Base Match
                 if not is_specialty_match:
                     for kw in search_keywords:
-                        if kw in name_normalized:
+                        # Use word boundary or stricter check for short keywords like "nhi"
+                        if len(kw) <= 3:
+                            # Match whole word only
+                            pattern = rf"\b{re.escape(kw)}\b"
+                            if re.search(pattern, name_normalized):
+                                priority_score += 1500
+                                match_reason.append(f"✅ Khớp chuyên khoa ({kw})")
+                                is_specialty_match = True
+                                break
+                        elif kw in name_normalized:
                             priority_score += 1500
-                            match_reason.append("✅ Khớp chuyên khoa")
+                            match_reason.append(f"✅ Khớp chuyên khoa ({kw})")
                             is_specialty_match = True
                             break
+                
+                # SPECIAL RULE FOR PEDIATRICS (NHI)
+                # If searching for "nhi", and hospital is NOT known for nhi, penalize heavily
+                is_pediatric_search = any(k in normalized_specialty for k in ['nhi', 'tre em', 'be', 'so sinh'])
+                if is_pediatric_search:
+                    is_pediatric_hospital = any(k in name_normalized for k in ['nhi dong', 'tu du', 'hung vuong', 'nhi khoa'])
+                    if is_pediatric_hospital:
+                        priority_score += 10000 # Massive boost for real pediatric hospitals
+                        match_reason.append("👶 Chuyên khoa Nhi tiêu chuẩn")
+                        is_specialty_match = True
+                    elif not is_specialty_match:
+                         # Non-pediatric hospitals get a huge penalty for pediatric queries
+                         priority_score -= 10000
+                         match_reason.append("❌ Không chuyên về Nhi")
             
             # Prestige Scoring
             is_top_tier = False
@@ -606,9 +646,11 @@ class HospitalFinderService:
                     'Từ Dũ', 'Nhi Đồng', 'Bình Dân', 'Hùng Vương'
                 ]
                 if any(giant in name for giant in target_giants):
-                    priority_score += 2000
-                    if is_specialty_match: priority_score += 3000
-                    match_reason.append("🌟 Tuyến cuối trung ương/thành phố")
+                    # Nếu là Giant nhưng KHÔNG khớp chuyên khoa, giảm boost để tránh "Ung Bướu" chiếm chỗ "Nhi"
+                    giant_boost = 3000 if is_specialty_match else 500
+                    priority_score += giant_boost
+                    if is_specialty_match:
+                        match_reason.append("🌟 Tuyến cuối trung ương/thành phố")
             
             # Penalize small clinics/stations to prevent them ranking as "Top Tier" unless match
             if 'phong kham' in name_normalized or 'tram y te' in name_normalized:
@@ -640,11 +682,11 @@ class HospitalFinderService:
                 # Small clinics get very low prestige
                 if 'phong kham' in name_normalized or 'tram y te' in name_normalized:
                     prestige_val = 0.1
-                
-                # If specialty is mentioned but NO MATCH, zero out prestige
-                if specialty and not is_specialty_match:
-                    prestige_val = 0.0
-                    dist_score = dist_score * 0.1
+            
+            # If specialty is mentioned but NO MATCH, kill the prestige and nerf distance
+            if specialty and not is_specialty_match:
+                prestige_val = 0.0
+                dist_score = dist_score * 0.001 # Extremely aggressive nerf
 
             total_weighted_score = (prestige_val * 0.5) + (dist_score * 0.3) + (cheapest_val * 0.2)
 
@@ -685,7 +727,11 @@ class HospitalFinderService:
             'success': True,
             'hospitals': hospitals[:limit],
             'recommendations': recommendations,
-            'search_info': {'specialty': specialty}
+            'search_info': {
+                'specialty': specialty,
+                'latitude': latitude,
+                'longitude': longitude
+            }
         }
 
     def format_hospitals_for_chatbot(self, search_result: Dict) -> str:
@@ -713,29 +759,40 @@ class HospitalFinderService:
                 search_query = f"dat lich kham {best_overall['name']}".replace(" ", "+")
                 result += f" | [Tìm đặt lịch (Google)](https://www.google.com/search?q={search_query})"
             
-            result += f"\n*(Lý do: Đây là cơ sở có điểm đánh giá tổng hợp cao nhất về uy tín, vị trí và chi phí)*\n\n---\n\n"
+            result += f"\n*(Lý do: Đây là cơ sở có điểm đánh giá tổng hợp cao nhất về uy tín, vị trí và chi phí)*\n"
+            # Hidden diagnostic info for developer
+            result += f"<!-- DBG: User({search_result.get('latitude')},{search_result.get('longitude')}) Target({lat},{lon}) -->\n\n---\n\n"
 
         # PHẦN 1: 3 Gợi ý Ưu tiên theo tiêu chí
         if any(recs.values()):
-            result += "� **3 Lựa chọn tiêu biểu theo tiêu chí của bạn:**\n"
+            result += "📍 **3 Lựa chọn tiêu biểu theo tiêu chí của bạn:**\n"
             
-            if recs.get('best_prestige'):
-                h = recs['best_prestige']
-                result += f"- 🏆 **Uy tín nhất :** {h['name']} ({h['distance']}km)\n"
+            # Kiểm tra xem best_prestige có khớp chuyên khoa không
+            requested_specialty = search_result.get('search_info', {}).get('specialty', '')
+            best_prestige = recs.get('best_prestige')
+            
+            if best_prestige:
+                # Nếu có yêu cầu chuyên khoa, nhưng thằng "Uy tín nhất" lại không có label "Khớp chuyên khoa"
+                # thì ta cảnh báo hoặc ẩn nó đi nếu nó quá lạc quẻ
+                is_match = any("Khớp" in r or "phù hợp" in r.lower() for r in best_prestige.get('match_reasons', []))
+                
+                if requested_specialty and not is_match:
+                    # Nếu không khớp, không đưa vào làm "Uy tín nhất" cho chuyên khoa đó
+                    pass
+                else:
+                    result += f"- 🏆 **Uy tín nhất :** {best_prestige['name']} ({best_prestige['distance']}km)\n"
             
             if recs.get('nearest'):
                 h = recs['nearest']
                 if h != recs.get('best_prestige'):
                     result += f"- 📍 **Gần bạn nhất :** {h['name']} ({h['distance']}km)\n"
                 else:
-                    result += f"- 📍 **Lựa chọn này cũng là nơi gần bạn nhất.**\n"
+                    result += f"- 📍 **Lựa chọn trên cũng là nơi gần bạn nhất.**\n"
             
             if recs.get('cheapest'):
                 h = recs['cheapest']
                 if h != recs.get('best_prestige') and h != recs.get('nearest'):
-                    result += f"- 💰 **Chi phí hợp lí (Trọng số 0.2):** {h['name']} ({h['distance']}km)\n"
-                elif h == recs.get('best_prestige') and h != recs.get('nearest'):
-                     result += f"- 💰 **Lựa chọn này cũng thuộc nhóm bệnh viện công chi phí hợp lý.**\n"
+                    result += f"- 💰 **Chi phí hợp lí:** {h['name']} ({h['distance']}km)\n"
             
             result += "\n---\n\n"
 

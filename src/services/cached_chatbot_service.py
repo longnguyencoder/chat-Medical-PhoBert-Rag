@@ -94,29 +94,25 @@ def cached_response(
          logger.debug("Skipping cache for specialized query (image or location)")
          return response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
     
-    # Don't cache if conversation_id is provided (personalized responses)
-    if conversation_id is not None:
-        logger.debug(f"Skipping cache for conversation-specific response")
-        result = response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
-        result['from_cache'] = False
-        return result
-    
-    # Generate cache key (without conversation context)
-    cache_key = generate_cache_key('response', question)
+    # Generate cache key
+    # We include user_name in the key to prevent name leakage between users
+    # but still allow caching within the same user's session or for users with same name.
+    cache_key = generate_cache_key('response', question, user_name=user_name or "anonymous")
     
     # Try to get from cache
-    cached_result = cache.get(cache_key)
-    if cached_result is not None:
-        logger.info(f"✓ Cache HIT for response: {question[:50]}...")
-        cached_result['from_cache'] = True
-        return cached_result
+    if CACHE_ENABLED:
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            logger.info(f"✓ Cache HIT for response: {question[:50]}...")
+            cached_result['from_cache'] = True
+            return cached_result
     
     # Cache miss - generate response
     logger.info(f"✗ Cache MISS for response: {question[:50]}...")
     result = response_func(question, search_results, extracted_features, conversation_id, user_name, image_base64, latitude, longitude)
     
     # Cache the result
-    if result.get('answer'):
+    if CACHE_ENABLED and result.get('answer'):
         cache.set(cache_key, result, ttl=Config.CACHE_TTL_RESPONSE)
         logger.debug(f"Cached response: {cache_key}")
     

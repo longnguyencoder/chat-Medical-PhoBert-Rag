@@ -108,6 +108,7 @@ Medical Chatbot API là một hệ thống chatbot y tế thông minh được p
 - Git
 - pip (Python package manager)
 - 4GB RAM trở lên (cho PhoBERT model)
+- xem video hướng dẫn: https://drive.google.com/file/d/1r9NcBVBnb-qIWovHCr28ykBUnGZ7Wg0s/view?usp=sharing
 
 ### Bước 1: Clone Repository
 

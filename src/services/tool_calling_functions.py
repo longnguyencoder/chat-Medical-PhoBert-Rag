@@ -29,13 +29,15 @@ AVAILABLE_TOOLS = [
 SỬ DỤNG TOOL NÀY KHI user:
 - Hỏi về bệnh viện gần đây / gần nhất
 - Cần đi khám bệnh / cấp cứu
+- Nói "tôi muốn đi bệnh viện", "nên đi khám ở đâu"
 - Hỏi địa chỉ bệnh viện
 - Hỏi số điện thoại bệnh viện
 - Cần tìm bệnh viện chuyên khoa (nhi, tim mạch, sản...)
-- Có triệu chứng cần khám ngay (sốt cao, đau ngực, khó thở...)
-- Hỏi "bệnh viện nào tốt", "nên đi bệnh viện nào"
+- Có triệu chứng CẤP CỨU cần khám ngay (sốt cực cao > 40°C, khó thở nặng, đau ngực dữ dội, co giật, mất máu nhiều)
 
-QUAN TRỌNG: Nếu user hỏi về thông tin liên hệ bệnh viện (số điện thoại, địa chỉ) mà KHÔNG cung cấp vị trí, hãy HỎI LẠI vị trí của họ trước khi gọi tool này.
+⚠️ QUY TẮC QUAN TRỌNG: 
+1. Nếu user chỉ hỏi về triệu chứng bình thường (sốt nhẹ, ho, đau đầu nhẹ), hãy TƯ VẤN Y TẾ TRƯỚC dựa trên dữ liệu search. KHÔNG gọi tool này trừ khi họ hỏi "đi khám ở đâu" hoặc triệu chứng báo động.
+2. Nếu user hỏi về thông tin liên hệ bệnh viện mà KHÔNG cung cấp vị trí, hãy HỎI LẠI vị trí của họ trước khi gọi tool này.
 
 VÍ DỤ:
 - "Bệnh viện nào gần tôi?" → Gọi tool
@@ -46,11 +48,11 @@ VÍ DỤ:
                 "properties": {
                     "vi_do": {
                         "type": "number",
-                        "description": "Vĩ độ (latitude) của vị trí user. VD: 10.8506 cho Thủ Đức, 10.7769 cho Quận 1"
+                        "description": "Vĩ độ (latitude) của người dùng"
                     },
                     "kinh_do": {
                         "type": "number",
-                        "description": "Kinh độ (longitude) của vị trí user. VD: 106.7719 cho Thủ Đức, 106.7009 cho Quận 1"
+                        "description": "Kinh độ (longitude) của người dùng"
                     },
                     "chuyen_khoa": {
                         "type": "string",

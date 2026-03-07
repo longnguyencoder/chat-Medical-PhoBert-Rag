@@ -11,6 +11,7 @@ import numpy as np  # Import numpy để tính toán vector
 import sys
 import logging
 import re
+import concurrent.futures  # Import for parallel execution
 from collections import defaultdict  # Import defaultdict để dễ dàng gom nhóm kết quả tìm kiếm
 
 # Cấu hình logging để theo dõi hoạt động hệ thống
@@ -120,6 +121,16 @@ Câu 2: Sốt trên bao nhiêu độ C là nguy hiểm?
     except Exception as e:
         logger.warning(f"Query expansion failed: {e}. Using original query only.")
         return [question]
+
+def expand_query_without_llm(question: str) -> List[str]:
+    """
+    Kỹ thuật Query Expansion NHANH: Tách từ khóa và tạo query đơn giản.
+    Không gọi LLM để tiết kiệm thời gian.
+    """
+    keywords = extract_keywords(question)
+    if len(keywords) > 3:
+        return [question, " ".join(keywords[:5])]
+    return [question]
 
 def generate_search_query_from_image(image_base64: str) -> str:
     """
@@ -624,24 +635,46 @@ def combined_search_with_filters(
     4. Reranking (Sắp xếp lại bằng Cross-Encoder)
     """
     try:
-        logger.info(f"🔍 Hybrid search for: {question}")
+        logger.info(f"🔍 Optimized Hybrid search for: {question}")
         collection = get_or_create_collection()
-        count = collection.count()
-        if count == 0:
-            logger.warning("No data in database")
-            return {"success": False, "message": "No data in database", "results": []}
         
-        # === BƯỚC 1: QUERY EXPANSION ===
-        expanded_queries = expand_query(question)
-        logger.info(f"Expanded to {len(expanded_queries)} queries")
+        # === BƯỚC 1: CHẠY SONG SONG EXPANSION & INTENT EXTRACTION ===
+        # Thay vì đợi từng cái, ta chạy cả 2 cùng một lúc
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Nếu câu hỏi quá ngắn, có thể dùng bản không LLM cho nhanh
+            if len(question) < 10:
+                future_expansion = executor.submit(expand_query_without_llm, question)
+            else:
+                future_expansion = executor.submit(expand_query, question)
+            
+            # Nếu đã có extracted_features từ ngoài truyền vào, không cần chạy lại
+            if not extracted_features:
+                future_intent = executor.submit(extract_user_intent_and_features, question)
+            else:
+                future_intent = None
+            
+            expanded_queries = future_expansion.result()
+            if future_intent:
+                intent_result = future_intent.result()
+                extracted_features = intent_result.get('extracted_features', {})
         
-        # === BƯỚC 2: HYBRID SEARCH CHO TỪNG QUERY ===
+        logger.info(f"Expanded to {len(expanded_queries)} queries in parallel")
+        
+        # === BƯỚC 2: BATCH EMBEDDING (RẤT QUAN TRỌNG ĐỂ TĂNG TỐC) ===
+        # Thay vì gọi phobert_ef cho từng query trong loop, ta gọi 1 lần cho tất cả
+        logger.info(f"Batch encoding {len(expanded_queries)} queries...")
+        all_query_vectors = phobert_ef(expanded_queries)
+        
         all_results = {}  # Dict để loại bỏ trùng lặp (Key = ID)
         
-        for query in expanded_queries:
-            hybrid_results = hybrid_search(query, n_results=n_results * 2)
+        # === BƯỚC 3: HYBRID SEARCH VỚI VECTORS ĐÃ CÓ ===
+        for idx, query in enumerate(expanded_queries):
+            query_vec = all_query_vectors[idx]
             
-            # Gộp kết quả (giữ lại điểm cao nhất nếu trùng ID)
+            # Ta cần một hàm search nhận vector đã có sẵn để tối ưu
+            hybrid_results = hybrid_search_with_vector(query, query_vec, n_results=n_results * 2)
+            
+            # Gộp kết quả
             for result in hybrid_results:
                 result_id = result['id']
                 if result_id not in all_results or result['hybrid_score'] > all_results[result_id]['relevance_score']:
@@ -650,45 +683,98 @@ def combined_search_with_filters(
                         'metadata': result['metadata'],
                         'document': result['document'],
                         'distance': result.get('distance', 0),
-                        'relevance_score': result['hybrid_score'], # Base hybrid score
+                        'relevance_score': result['hybrid_score'],
                         'score_breakdown': result['score_breakdown'],
                         'bm25_score': result['bm25_score'],
                         'vector_score': result['vector_score'],
                         'confidence': 'high' if result['hybrid_score'] > 0.7 else 'medium' if result['hybrid_score'] > 0.5 else 'low'
                     }
         
-        # Chuyển thành list và sắp xếp sơ bộ
+        # Chuyển thành list và sắp xếp
         scored_results = list(all_results.values())
         scored_results.sort(key=lambda x: x['relevance_score'], reverse=True)
         
-        # Lấy top ứng viên để Rerank (Rerank tốn tài nguyên nên chỉ làm trên top đầu)
-        top_candidates = scored_results[:n_results * 2]
+        # Tối ưu: Chỉ Rerank top 5 để cực nhanh (Rerank là bước chậm nhất sau LLM)
+        top_candidates = scored_results[:5]
         
-        # === BƯỚC 3: RERANKING ===
+        # === BƯỚC 4: RERANKING ===
         reranked_results = rerank_results(question, top_candidates)
         
         # Lọc kết quả và giới hạn số lượng
         filtered_results = [
             r for r in reranked_results
-            if r.get('relevance_score', 0) >= CONFIDENCE_THRESHOLD  # Lọc bỏ kết quả điểm quá thấp
+            if r.get('relevance_score', 0) >= CONFIDENCE_THRESHOLD
         ][:n_results]
-        
-        logger.info(f"Found {len(filtered_results)} relevant results (from {len(scored_results)} total)")
-        if filtered_results:
-            top = filtered_results[0]
-            logger.info(f"Top result: {top['metadata'].get('disease_name')} "
-                       f"(score: {top.get('final_score', top.get('relevance_score')):.3f})")
         
         return {
             "success": True,
             "results": filtered_results,
             "total_found": len(filtered_results),
             "total_searched": len(scored_results),
-            "search_method": "Hybrid (BM25 + Vector)" if BM25_ENABLED else "Vector Only"
+            "search_method": "Optimized Hybrid (Parallel + Batching)"
         }
     except Exception as e:
-        logger.error(f"Error in search: {str(e)}", exc_info=True)
+        logger.error(f"Error in optimized search: {str(e)}", exc_info=True)
         return {"success": False, "message": str(e), "results": []}
+
+def hybrid_search_with_vector(
+    query: str,
+    query_vec: List[float],
+    n_results: int = 10
+) -> List[Dict[str, Any]]:
+    """
+    Bản mod của hybrid_search nhưng nhận Vector truyền vào sẵn để tránh re-encoding.
+    """
+    results_dict = defaultdict(lambda: {'bm25_score': 0.0, 'vector_score': 0.0})
+    
+    # 1. BM25
+    if BM25_ENABLED:
+        try:
+            bm25_results = BM25_ENGINE.search(query, top_k=n_results * 2)
+            if bm25_results:
+                max_bm25 = max(r['bm25_score'] for r in bm25_results)
+                if max_bm25 > 0:
+                    for result in bm25_results:
+                        doc_id = result['id']
+                        results_dict[doc_id]['bm25_score'] = result['bm25_score'] / max_bm25
+                        results_dict[doc_id]['metadata'] = result['metadata']
+                        results_dict[doc_id]['document'] = result['document']
+                        results_dict[doc_id]['id'] = doc_id
+        except: pass
+    
+    # 2. Vector Search với vector có sẵn
+    try:
+        collection = get_or_create_collection()
+        vector_results = collection.query(
+            query_embeddings=[query_vec],
+            n_results=n_results * 2,
+            include=["metadatas", "documents", "distances"]
+        )
+        
+        for i in range(len(vector_results['ids'][0])):
+            doc_id = vector_results['ids'][0][i]
+            vector_score = normalize_similarity(vector_results['distances'][0][i])
+            
+            results_dict[doc_id]['vector_score'] = vector_score
+            results_dict[doc_id]['metadata'] = vector_results['metadatas'][0][i]
+            results_dict[doc_id]['document'] = vector_results['documents'][0][i]
+            results_dict[doc_id]['id'] = doc_id
+            results_dict[doc_id].update({'distance': vector_results['distances'][0][i]})
+    except: pass
+    
+    # 3. Combine
+    combined_results = []
+    for doc_id, scores in results_dict.items():
+        hybrid_score = (HYBRID_BM25_WEIGHT * scores['bm25_score'] + HYBRID_VECTOR_WEIGHT * scores['vector_score'])
+        combined_results.append({
+            'id': doc_id, 'metadata': scores['metadata'], 'document': scores['document'],
+            'hybrid_score': hybrid_score, 'relevance_score': hybrid_score,
+            'bm25_score': scores['bm25_score'], 'vector_score': scores['vector_score'],
+            'score_breakdown': {'bm25': round(scores['bm25_score'], 3), 'vector': round(scores['vector_score'], 3)}
+        })
+    
+    combined_results.sort(key=lambda x: x['hybrid_score'], reverse=True)
+    return combined_results[:n_results]
 
 # ═══════════════════════════════════════════════════════════════
 # SINH CÂU TRẢ LỜI TỰ NHIÊN (GENERATION)
@@ -822,26 +908,34 @@ QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):
 Bạn có quyền truy cập vào các công cụ (tools) để CHỦ ĐỘNG hỗ trợ user:
 
 **Tool 1: lay_thong_tin_nguoi_dung**
-- Lấy hồ sơ sức khỏe, lịch uống thuốc, thuốc sắp uống
-- ✅ TỰ ĐỘNG GỌI khi user nói về triệu chứng (đau đầu, sốt, ho...)
-- ✅ TỰ ĐỘNG GỌI khi user hỏi về thuốc
-- ✅ TỰ ĐỘNG GỌI để check dị ứng trước khi đề xuất
+- Lấy hồ sơ sức khỏe, lịch uống thuốc, thuốc sắp uống.
+- ✅ TỰ ĐỘNG GỌI khi user nói về triệu chứng (đau đầu, sốt, ho...) để hiểu tình trạng bệnh nhân trước khi tư vấn.
+- ✅ TỰ ĐỘNG GỌI khi user hỏi về thuốc để check dị ứng.
 
 **Tool 2: tim_benh_vien_gan_nhat**
-- Tìm bệnh viện gần user (cần vị trí GPS)
+- Tìm bệnh viện gần nhất (cần tọa độ GPS).
+- ⚠️ CHỈ GỌI TOOL NÀY KHI:
+    a) User yêu cầu tìm bệnh viện ("tìm bệnh viện", "khám ở đâu", "địa chỉ bệnh viện").
+    b) Triệu chứng CẤP CỨU báo động (Sốt cao liên tục > 39.5°C không hạ, khó thở nặng, co giật, đau ngực dữ dội, lừ đừ/mất ý thức).
+- ❌ KHÔNG GỌI TOOL NÀY CHO CÁC TRIỆU CHỨNG NHẸ HOẶC MỚI BỊ (sốt nhẹ, ho, sổ mũi) - hãy tập trung TƯ VẤN Y TẾ và cách chăm sóc tại nhà trước.
 - 🔴 QUY TẮC TỐI THƯỢNG: Khi sử dụng tool này, bạn PHẢI sử dụng TOÀN BỘ chuỗi văn bản (string) trả về từ tool mà KHÔNG ĐƯỢC THAY ĐỔI DÙ CHỈ MỘT DẤU CHẤM.
 - ❌ KHÔNG tự ý tóm tắt, KHÔNG tự ý tạo danh sách mới, KHÔNG dùng bullet points của riêng bạn.
 - ✅ CÁCH LÀM: Copy y nguyên đoạn văn bản từ tool và dán vào câu trả lời của bạn.
-- ✅ ƯU TIÊN TUYỆT ĐỐI: Bệnh viện lớn, uy tín luôn được Backend xếp lên đầu danh sách, bạn chỉ việc hiển thị nó.
+
+
 
 {health_profile_context if health_profile_context else ""}
 
 CÁCH TRẢ LỜI:
 {greeting_instruction}
-- Trả lời DỰA TRÊN nội dung từ [Nguồn]
+- Trả lời DỰA TRÊN nội dung từ [Nguồn] để cung cấp lời khuyên y tế/cách điều trị/phòng ngừa.
 - 🔴 QUY TẮC BẮT BUỘC: Nếu bạn gọi tool `tim_benh_vien_gan_nhat`, bạn PHẢI in ra câu trả lời của tool đó một cách NGUYÊN VĂN (Verbatim). 
 - ❌ KHÔNG được tóm tắt, KHÔNG dùng bullet points (•) của bạn, KHÔNG được tự ý viết lại.
-- Trình tự trình bày: 1. Câu chào -> 2. PHẦN TRẢ LỜI CỦA TOOL (Dán 100% nguyên văn) -> 3. Lời khuyên kèm theo.
+- Trình tự trình bày: 
+    1. Câu chào.
+    2. PHẦN TƯ VẤN Y TẾ (Cách xử lý triệu chứng, thông tin bệnh từ [Nguồn]).
+    3. PHẦN TRẢ LỜI CỦA TOOL (Nếu có gọi tool tìm bệnh viện - Dán 100% nguyên văn).
+    4. Lời khuyên cuối cùng và khuyến cáo đi khám.
 - Giọng điệu thân thiện, không gây hoảng loạn.
 
 LUÔN KHUYẾN CÁO ĐI KHÁM BÁC SĨ NẾU:
